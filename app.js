@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=10";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=11";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -461,20 +461,31 @@ $('authForm').addEventListener('submit', async e=>{
 // ---- family: own list + lists shared with me ----
 let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
-let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false;
+let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒'};
 const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
-const curList = () => lists.find(l=>l.id===listId) || null;
+const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
+const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒'});
+const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
-  const all=[uid, ...sharedWithMe.map(p=>p.uid)];
-  for (const o of all){
-    const b=el('button','chip'+(o===owner?' on':''), (o===uid?'🏠 ':'👤 ')+ownerName(o)+(myRoleOn(o)==='view'?t('viewSuffix'):''));
-    b.onclick=()=>{ if(o!==owner) openList(o); };
+  const all=[{uid, name:me}, ...sharedWithMe.map(p=>({uid:p.uid, name:p.name}))];
+  for (const p of all){
+    const on = p.uid===owner, mine = p.uid===uid;
+    const b=el('button','person'+(on?' on':'')); b.type='button'; b.dataset.uid=p.uid;
+    b.setAttribute('aria-pressed', on?'true':'false');
+    const av=el('span','av',initialsOf(p.name)); av.style.background=avatarColor(p.uid); av.setAttribute('aria-hidden','true');
+    b.append(av, el('span','pn', mine ? t('me') : p.name));
+    if (!mine && myRoleOn(p.uid)==='view') b.appendChild(el('span','tag',t('viewOnly')));
+    b.onclick=()=>{ if(!on) openList(p.uid); };
     box.appendChild(b);
   }
-  const fam=el('button','chip',t('family')); fam.onclick=openFamily; fam.setAttribute('aria-haspopup','dialog'); box.appendChild(fam);
+  box.appendChild(el('span','grow'));
+  const fam=el('button','person fam'); fam.type='button'; fam.id='famBtn'; fam.setAttribute('aria-haspopup','dialog'); fam.setAttribute('aria-label', t('familyBtn'));
+  const ic=el('span','av'); ic.innerHTML=ICON.people; fam.append(ic, el('span','pn',t('familyBtn')));
+  const n=famPeople().length; if(n) fam.appendChild(el('span','count',String(n)));
+  fam.onclick=openFamily; box.appendChild(fam);
   updateTitle();
 }
 function updateTitle(){
@@ -486,19 +497,24 @@ function updateTitle(){
 function renderLists(){
   const box=$('listbar'); if(!box) return; box.innerHTML='';
   const ed = canEdit();
-  if (!lists.length && !ed){ box.classList.add('hidden'); return; }
+  if (!lists.length && !ed && !mainCustom()){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  const all = [{id:'main', name:t('mainList'), emoji:'🛒'}, ...lists];
+  const all = [mainEntry(), ...lists];
   for (const l of all){
-    const on = l.id===listId, editable = on && l.id!=='main' && ed;
-    const b=el('button','chip'+(on?' on':''), l.emoji+' '+l.name+(editable?' ✎':''));
-    b.type='button'; b.dataset.list=l.id;
-    if (editable) b.setAttribute('aria-label', t('editListAria',{name:l.name}));
-    b.onclick=()=>{ if(!on) openList(owner, l.id); else if(editable) openListSheet(l); };
+    const on = l.id===listId;
+    const b=el('button','ltab'+(on?' on':'')); b.type='button'; b.dataset.list=l.id;
+    b.setAttribute('aria-current', on?'true':'false');
+    b.append(el('span','em',l.emoji), el('span','ln',l.name));
+    b.onclick=()=>{ if(!on) openList(owner, l.id); else if(ed) openListSheet(l); };
     box.appendChild(b);
+    if (on && ed){
+      const e=document.createElement('button'); e.type='button'; e.className='ltab-edit'; e.id='editListBtn';
+      e.setAttribute('aria-label', t('editListAria',{name:l.name})); e.innerHTML=ICON.pencil;
+      e.onclick=()=>openListSheet(l); box.appendChild(e);
+    }
   }
-  if (ed){ const n=el('button','chip new',t('newList')); n.type='button'; n.id='newListBtn'; n.onclick=()=>openListSheet(null); box.appendChild(n); }
-  const act = box.querySelector('.chip.on'); if (act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
+  if (ed){ const n=el('button','ltab new',t('newList')); n.type='button'; n.id='newListBtn'; n.onclick=()=>openListSheet(null); box.appendChild(n); }
+  const act = box.querySelector('.ltab.on'); if (act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
 }
 
 // ---- create / rename / delete a list ----
@@ -521,6 +537,7 @@ function renderListSheet(){
   const box=el('div','box'); box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true');
   box.appendChild(el('h3',null,S.edit?t('editListTitle'):t('newListTitle')));
   if(!S.edit) box.appendChild(el('p','sub',t('newListSub')));
+  else if(S.edit.id==='main') box.appendChild(el('p','sub',t('editMainHint')));
   const lb=el('label',null,t('listName')); lb.htmlFor='lName'; box.appendChild(lb);
   const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
   inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveList(); } };
@@ -538,7 +555,7 @@ function renderListSheet(){
     r.append(no,yes); c.appendChild(r); box.appendChild(c);
   } else {
     const row=el('div','row');
-    if (S.edit && myRoleOn(owner)==='owner'){ const d=el('button','danger',t('delete')); d.type='button'; d.id='lDel'; d.onclick=()=>{ S.name=$('lName').value; S.confirm=true; renderListSheet(); }; row.appendChild(d); }
+    if (S.edit && S.edit.id!=='main' && myRoleOn(owner)==='owner'){ const d=el('button','danger',t('delete')); d.type='button'; d.id='lDel'; d.onclick=()=>{ S.name=$('lName').value; S.confirm=true; renderListSheet(); }; row.appendChild(d); }
     const c=el('button',null,t('cancel')); c.type='button'; c.onclick=closeListSheet;
     const ok=el('button','primary',S.edit?t('save'):t('create')); ok.type='button'; ok.id='lSave'; ok.onclick=saveList;
     row.append(c,ok); box.appendChild(row);
@@ -550,6 +567,12 @@ function saveList(){
   const name=($('lName').value||'').trim().slice(0,40);
   if(!name){ S.err=t('enterListName'); return renderListSheet(); }
   const o=owner;
+  if (S.edit && S.edit.id==='main'){
+    const stored = (name===t('mainList') || name===mainEntry().name && !mainInfo.name) ? '' : name;
+    mainInfo={name:stored, emoji:S.emoji};
+    setDoc(doc(fs,'ulists/'+o+'/lists/main'), {name:stored, emoji:S.emoji, main:true}, {merge:true}).catch(handleWriteError);
+    closeListSheet(); renderLists(); updateTitle(); return;
+  }
   if (S.edit){
     const id=S.edit.id;
     lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji}:l);
@@ -590,12 +613,14 @@ function addToolbar(){
   out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
   const lg=el('button','chip lang-chip',t('langSwitch')); lg.onclick=()=>setLang(isAr?'en':'ar');
   bar.append(out, lg, el('span','who-am-i',t('hi',{name:me})));
-  const lb=el('div','listbar'); lb.id='listbar';
-  $('status').before(sw); $('status').before(lb); $('status').before(bar);
+  sw.setAttribute('aria-label', t('peopleNav'));
+  const lb=el('div','listbar'); lb.id='listbar'; lb.setAttribute('aria-label', t('listsNav'));
+  const nav=el('nav','navcard'); nav.append(sw, lb);
+  $('status').before(nav); $('status').before(bar);
 }
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
-  if (o!==owner){ lists=[]; listsLoaded=false; }
+  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒'}; }
   owner=o; store('shopOwner', o);
   listId = lid || store('shopList:'+o) || 'main';
   if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId)) listId='main';
@@ -606,7 +631,9 @@ function openList(o, lid){
   renderSwitcher(); renderLists(); render();
   unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
-    lists = snap.docs.map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}; })
+    const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
+    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒'};
+    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}; })
       .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
     for (const l of lists) pendingLists.delete(l.id);
     if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
@@ -658,6 +685,7 @@ const ICON = {
   err:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>',
   check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   eye:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  pencil:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
   people:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.3c2.4.1 4.3 1.8 4.8 4.7"/></svg>'
 };
 function iconEl(name){ const s=document.createElement('span'); s.style.display='inline-flex'; s.innerHTML=ICON[name]; return s; }
@@ -832,7 +860,7 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; familyRoles=d.familyRoles||{}; if(famOpen) renderFamily(); }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; familyRoles=d.familyRoles||{}; renderSwitcher(); if(famOpen) renderFamily(); }, ()=>{});
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
       sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||t('familyMember')), email:String(d.data().email||''), role:d.data().role==='view'?'view':'edit'}));
       renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
