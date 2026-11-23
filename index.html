@@ -79,6 +79,31 @@
   .sheet .row button{flex:1;padding:13px;border-radius:12px;font:inherit;font-weight:800;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
   .sheet .row .primary{background:var(--green);color:#fff;border-color:var(--green)}
   .sheet .row .danger{color:var(--red)}
+  /* ---- landing & registration ---- */
+  #auth{position:fixed;inset:0;z-index:50;overflow-y:auto;background:var(--bg);padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .hero{background:linear-gradient(160deg,#1f8a5b 0%,#14603f 100%);color:#fff;padding:48px 24px 72px;text-align:center;border-radius:0 0 32px 32px}
+  .hero .logo{font-size:56px;line-height:1;margin-bottom:12px}
+  .hero h2{font-size:30px;margin:0 0 8px;font-weight:800;letter-spacing:-.5px}
+  .hero p{margin:0 auto;max-width:340px;opacity:.92;font-size:16px;line-height:1.45}
+  .invite{display:inline-block;margin-top:16px;background:rgba(255,255,255,.18);border-radius:99px;padding:6px 14px;font-size:14px;font-weight:700}
+  .features{display:flex;gap:10px;max-width:440px;margin:-40px auto 0;padding:0 16px}
+  .feature{flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 8px;text-align:center;font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+  .feature span{display:block;font-size:24px;margin-bottom:4px}
+  .authcard{max-width:440px;margin:20px auto 32px;padding:0 16px}
+  .authcard .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
+  .authcard h3{margin:0 0 4px;font-size:20px}
+  .authcard .hint{color:var(--muted);font-size:14px;margin:0 0 8px}
+  .authcard label{display:block;font-size:13px;color:var(--muted);font-weight:700;margin:12px 0 4px}
+  .authcard input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);outline:none}
+  .authcard input:focus{border-color:var(--green)}
+  .authcard .go{width:100%;margin-top:18px;border:0;background:var(--green);color:#fff;font:inherit;font-weight:800;font-size:17px;padding:14px;border-radius:14px;cursor:pointer}
+  .authcard .go:disabled{opacity:.6}
+  .authcard .err{color:var(--red);font-size:14px;margin-top:10px;min-height:1em}
+  .authcard .ok{color:var(--green);font-size:14px;margin-top:10px}
+  .authcard .switch{text-align:center;margin-top:14px;font-size:14px;color:var(--muted)}
+  .linkbtn{background:none;border:0;color:var(--green);font:inherit;font-weight:800;cursor:pointer;padding:0}
+  .toolbar{display:flex;gap:8px;align-items:center;margin:8px 16px 0}
+  .toolbar .who-am-i{margin-left:auto;font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -120,6 +145,32 @@
   </div>
 </div>
 
+<div id="auth" class="hidden">
+  <div class="hero">
+    <div class="logo">🛒</div>
+    <h2>Welcome!</h2>
+    <p>Your family's shared shopping list. Plan together at home, then tick items off in the supermarket — every change shows up on both phones instantly.</p>
+    <div class="invite hidden" id="inviteNote">You've been invited to a family list 💚</div>
+  </div>
+  <div class="features">
+    <div class="feature"><span>👨‍👩‍👧</span>Shared with family</div>
+    <div class="feature"><span>🥬</span>Sorted by aisle</div>
+    <div class="feature"><span>✅</span>Tick while shopping</div>
+  </div>
+  <div class="authcard">
+    <form class="box" id="authForm" novalidate>
+      <h3 id="aTitle">Create your account</h3>
+      <p class="hint" id="aHint">It takes 30 seconds.</p>
+      <div id="nameWrap"><label for="aName">Your name</label><input id="aName" autocomplete="name" placeholder="e.g. Ibrahim"></div>
+      <label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+      <label for="aPass">Password</label><input id="aPass" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+      <button class="go" id="aGo" type="submit">Register</button>
+      <div class="err" id="aErr" role="alert"></div>
+      <div class="switch" id="aSwitch"></div>
+    </form>
+  </div>
+</div>
+
 <script type="module">
 // ===== 1) PASTE YOUR FIREBASE CONFIG HERE (from Firebase console → Project settings → Your apps → Web app) =====
 const firebaseConfig = {
@@ -133,7 +184,7 @@ const firebaseConfig = {
 // ==============================================================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
   {id:'dairy', label:'Dairy & Eggs', e:'🥛'},
@@ -406,29 +457,82 @@ function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); loc
 function newCode(){ const a=new Uint8Array(12); crypto.getRandomValues(a); return 'list-'+[...a].map(b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join(''); }
 function shareLink(code){ return location.origin + location.pathname + '#' + code; }
 
-// ---- setup screen ----
-function showSetup(code){
-  return new Promise(resolve=>{
-    const wrap = document.createElement('div'); wrap.className='sheet';
-    wrap.innerHTML = `<div class="box">
-      <h3>Welcome 👋</h3>
-      <label>Your name (shown on items you add)</label><input id="sName" placeholder="e.g. Ahmed">
-      <div class="row"><button class="primary" id="sGo">Start</button></div></div>`;
-    document.body.appendChild(wrap);
-    const go = ()=>{ const n=wrap.querySelector('#sName').value.trim(); if(!n) return; store('shopName', n); wrap.remove(); resolve(n); };
-    wrap.querySelector('#sGo').onclick=go;
-    wrap.querySelector('#sName').addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
-  });
+// ---- landing & registration ----
+let authMode='register';
+function setAuthMode(m){
+  authMode=m;
+  const reg = m==='register';
+  $('aTitle').textContent = reg ? 'Create your account' : 'Welcome back';
+  $('aHint').textContent = reg ? 'It takes 30 seconds.' : 'Sign in to open your shopping list.';
+  $('nameWrap').classList.toggle('hidden', !reg);
+  $('aPass').autocomplete = reg ? 'new-password' : 'current-password';
+  $('aGo').textContent = reg ? 'Register' : 'Sign in';
+  $('aErr').textContent=''; $('aErr').className='err';
+  const sw=$('aSwitch'); sw.innerHTML='';
+  sw.append(reg ? 'Already registered? ' : 'New here? ');
+  const b=el('button','linkbtn', reg ? 'Sign in' : 'Create an account'); b.type='button';
+  b.onclick=()=>setAuthMode(reg?'signin':'register'); sw.appendChild(b);
+  if(!reg){
+    sw.appendChild(document.createElement('br'));
+    const f=el('button','linkbtn','Forgot password?'); f.type='button'; f.style.marginTop='8px';
+    f.onclick=async()=>{
+      const email=$('aEmail').value.trim();
+      if(!email){ $('aErr').textContent='Type your email above first.'; return; }
+      try{ await sendPasswordResetEmail(window._auth, email); $('aErr').className='ok'; $('aErr').textContent='Check your email for a reset link.'; }
+      catch(e){ $('aErr').className='err'; $('aErr').textContent=authMsg(e); }
+    };
+    sw.appendChild(f);
+  }
 }
-function addShareButton(code){
-  const b = el('button','chip','📤 Share list'); b.style.margin='8px 16px 0';
-  b.onclick = async ()=>{
+function authMsg(e){
+  const c=(e&&e.code)||'';
+  if(c.includes('email-already-in-use')) return 'This email is already registered — tap "Sign in" below.';
+  if(c.includes('invalid-email')) return 'Please enter a valid email address.';
+  if(c.includes('weak-password')) return 'Password needs at least 6 characters.';
+  if(c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')) return 'Email or password is incorrect.';
+  if(c.includes('too-many-requests')) return 'Too many attempts. Please wait a minute and try again.';
+  if(c.includes('network')) return 'No internet connection. Please try again.';
+  if(c.includes('operation-not-allowed')) return 'Email sign-in is not enabled yet in Firebase.';
+  return 'Something went wrong. Please try again.';
+}
+function showLanding(invited){
+  $('inviteNote').classList.toggle('hidden', !invited);
+  setAuthMode(store('shopRegistered') ? 'signin' : 'register');
+  $('auth').classList.remove('hidden');
+}
+$('authForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const auth=window._auth, name=$('aName').value.trim(), email=$('aEmail').value.trim(), pass=$('aPass').value;
+  $('aErr').className='err'; $('aErr').textContent='';
+  if(authMode==='register' && !name){ $('aErr').textContent='Please enter your name.'; return; }
+  if(!email || !pass){ $('aErr').textContent='Please enter your email and password.'; return; }
+  $('aGo').disabled=true;
+  try{
+    if(authMode==='register'){
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(cred.user, {displayName:name});
+      window._pendingName = name;
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+    store('shopRegistered','1');
+  }catch(err){ $('aErr').textContent=authMsg(err); }
+  $('aGo').disabled=false;
+});
+
+function addToolbar(code, user){
+  const bar = el('div','toolbar');
+  const share = el('button','chip','📤 Share list');
+  share.onclick = async ()=>{
     const link = shareLink(code);
-    try { if (navigator.share){ await navigator.share({title:'Our Shopping List', text:'Open our shared shopping list:', url:link}); return; } } catch(e){ return; }
+    try { if (navigator.share){ await navigator.share({title:'Our Shopping List', text:'Join our family shopping list:', url:link}); return; } } catch(e){ return; }
     try { await navigator.clipboard.writeText(link); setStatus('Link copied — send it to your wife on WhatsApp.'); }
     catch(e){ setStatus('Send this link: ' + link); }
   };
-  $('status').before(b);
+  const out = el('button','chip','Sign out');
+  out.onclick = async ()=>{ try{ await signOut(window._auth); }catch(e){} location.reload(); };
+  bar.append(share, out, el('span','who-am-i','Hi, '+me));
+  $('status').before(bar);
 }
 
 // ---- boot ----
@@ -439,36 +543,46 @@ renderCatPick(); render();
     $('summary').textContent='Not syncing'; return;
   }
   // list code: from the link (#list-...) or saved on this phone, else create one
-  let code = (location.hash||'').slice(1);
-  if (!/^list-[a-z0-9]{12,}$/.test(code)) code = store('shopList') || newCode();
+  const fromLink = /^list-[a-z0-9]{12,}$/.test((location.hash||'').slice(1));
+  let code = fromLink ? location.hash.slice(1) : (store('shopList') || newCode());
   store('shopList', code);
   if (location.hash.slice(1)!==code) history.replaceState(null,'','#'+code);
 
-  me = store('shopName') || await showSetup(code);
-  names[me] = me;
-  addShareButton(code);
-
   const app = initializeApp(firebaseConfig);
   const fs = initializeFirestore(app, { localCache: persistentLocalCache() });
-  const auth = getAuth(app);
-  try { await signInAnonymously(auth); }
-  catch(e){ setStatus("Couldn't connect to Firebase. Check that Anonymous sign-in is turned on (setup guide step 3).", true); return; }
+  const auth = getAuth(app); window._auth = auth;
+  let started = false;
 
+  onAuthStateChanged(auth, user=>{
+    if (user && user.isAnonymous){ signOut(auth); return; }
+    if (!user){ if(!started) showLanding(fromLink); return; }
+    if (started) return; started = true;
+    $('auth').classList.add('hidden');
+    me = window._pendingName || user.displayName || (user.email||'').split('@')[0] || 'Me';
+    names[me] = me;
+    addToolbar(code, user);
+    startList(fs, code, user);
+  });
+})();
+
+function startList(fs, code, user){
   db = mkDb(fs, 'lists/' + code + '/');
+  // record who has joined this list
+  write('members/'+user.uid, ()=>db.doc('members/'+user.uid).set({name:me, email:user.email||'', joinedAt:Date.now()}));
   let timer = setTimeout(()=>setStatus("Can't reach the list yet — showing what's on this phone. It will update when you're back online.", true), 10000);
   db.collection('items').onSnapshot(snap=>{
     if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus(''); }
     items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, createdAt:+v.createdAt||0}]; }));
     for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
     if (!editing) render();
-  }, err=>{ clearTimeout(timer); setStatus(err.code==='permission-denied' ? "Firebase refused access — check the Firestore rules (setup guide step 4)." : "Live updates stopped. Reopen the app to reconnect.", true); });
+  }, err=>{ clearTimeout(timer); setStatus(err.code==='permission-denied' ? "Firebase refused access — please sign out and sign in again." : "Live updates stopped. Reopen the app to reconnect.", true); });
 
   db.doc('meta/recent').onSnapshot(snap=>{
     const v = snap.exists ? snap.data() : null;
     recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
     if (!editing) render();
   }, ()=>{});
-})();
+}
 </script>
 </body>
 </html>
