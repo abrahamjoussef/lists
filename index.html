@@ -630,14 +630,14 @@ $('authForm').addEventListener('submit', async e=>{
   $('aGo').disabled=true;
   try{
     if(authMode==='register'){
+      window._pendingName = name;   // set first: Firebase reports the sign-in before updateProfile runs
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(cred.user, {displayName:name});
-      window._pendingName = name;
     } else {
       await signInWithEmailAndPassword(auth, email, pass);
     }
     store('shopRegistered','1');
-  }catch(err){ $('aErr').textContent=authMsg(err); }
+  }catch(err){ window._pendingName = null; $('aErr').textContent=authMsg(err); }
   $('aGo').disabled=false;
 });
 
@@ -700,11 +700,12 @@ function openList(o){
 }
 
 // ---- family sheet ----
-let famOpen=false;
-function closeFamily(){ famOpen=false; const s=$('famSheet'); if(s) s.remove(); }
+let famOpen=false, famMsg='', famOk=false;
+function closeFamily(){ famOpen=false; famMsg=''; const s=$('famSheet'); if(s) s.remove(); }
 function openFamily(){ famOpen=true; renderFamily(); }
 function renderFamily(msg, ok){
   if(!famOpen) return;
+  if(msg!==undefined){ famMsg=msg; famOk=!!ok; }
   let wrap=$('famSheet');
   const keepEmail = wrap ? (wrap.querySelector('#famEmail')||{}).value||'' : '';
   if(!wrap){ wrap=el('div','sheet'); wrap.id='famSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeFamily(); }; document.body.appendChild(wrap); }
@@ -720,7 +721,7 @@ function renderFamily(msg, ok){
   const add=el('button',null,'Add'); add.type='button'; add.onclick=()=>addMember(inp.value);
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter') addMember(inp.value); });
   row.append(inp,add); box.appendChild(row);
-  const m=el('div','msg', msg||''); m.style.color= ok ? 'var(--green)' : 'var(--red)'; box.appendChild(m);
+  const m=el('div','msg', famMsg); m.style.color= famOk ? 'var(--green)' : 'var(--red)'; box.appendChild(m);
 
   box.appendChild(el('h4',null,'Lists shared with me'));
   if(!sharedWithMe.length) box.appendChild(el('div','none','Nobody has added you yet.'));
