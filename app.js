@@ -433,7 +433,7 @@ $('authForm').addEventListener('submit', async e=>{
 });
 
 // ---- family: own list + lists shared with me ----
-let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={};
+let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={};
 function ownerName(o){ if(o===uid) return 'My list'; const p=sharedWithMe.find(x=>x.uid===o); return p ? p.name+"'s list" : 'List'; }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
@@ -443,7 +443,7 @@ function renderSwitcher(){
     b.onclick=()=>{ if(o!==owner) openList(o); };
     box.appendChild(b);
   }
-  const fam=el('button','chip','👥 Family'); fam.onclick=openFamily; box.appendChild(fam);
+  const fam=el('button','chip','👥 Family'); fam.onclick=openFamily; fam.setAttribute('aria-haspopup','dialog'); box.appendChild(fam);
   $('title').textContent = '🛒 ' + (owner===uid ? 'My Shopping List' : ownerName(owner).replace("'s list","'s Shopping List"));
 }
 function addToolbar(){
@@ -490,77 +490,140 @@ function openList(o){
   }, ()=>{}));
 }
 
-// ---- family sheet ----
-let famOpen=false, famMsg='', famOk=false;
-function closeFamily(){ famOpen=false; famMsg=''; const s=$('famSheet'); if(s) s.remove(); }
-function openFamily(){ famOpen=true; renderFamily(); }
+// ---- family page ----
+let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null;
+const ICON = {
+  close:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  mail:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+  ok:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 10"/></svg>',
+  err:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>',
+  check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  people:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.3c2.4.1 4.3 1.8 4.8 4.7"/></svg>'
+};
+function iconEl(name){ const s=document.createElement('span'); s.style.display='inline-flex'; s.innerHTML=ICON[name]; return s; }
+function avatarColor(seed){ let h=0; for(const ch of String(seed)) h=(h*31+ch.charCodeAt(0))>>>0; return `hsl(${h%360} 45% 42%)`; }
+function initialsOf(name){ return String(name||'?').trim().split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase() || '?'; }
+function famPeople(){
+  const map=new Map();
+  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||'Family member'), email:String(familyEmails[fid]||''), canEditMine:true, sharedWithMe:false});
+  for (const p of sharedWithMe){ const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=true; map.set(p.uid,x); }
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
+function closeFamily(){ famOpen=false; famMsg=''; famConfirm=null; const s=$('famSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', famKeys); }
+function famKeys(e){ if(e.key==='Escape') closeFamily(); }
+function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
 function renderFamily(msg, ok){
   if(!famOpen) return;
   if(msg!==undefined){ famMsg=msg; famOk=!!ok; }
   let wrap=$('famSheet');
   const keepEmail = wrap ? (wrap.querySelector('#famEmail')||{}).value||'' : '';
-  if(!wrap){ wrap=el('div','sheet'); wrap.id='famSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeFamily(); }; document.body.appendChild(wrap); }
+  const scroll = wrap ? (wrap.querySelector('.fam-body')||{}).scrollTop||0 : 0;
+  if(!wrap){ wrap=el('div','sheet fam-sheet'); wrap.id='famSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeFamily(); }; document.body.appendChild(wrap); }
   wrap.innerHTML='';
-  const box=el('div','box fam'); box.style.maxHeight='85vh'; box.style.overflowY='auto';
-  box.appendChild(el('h3',null,'👥 Family'));
-  box.appendChild(el('div','hint','Add family members by the email they registered with. They can then see and edit your list, and you can see theirs once they add you.'));
+  const panel=el('div','fam-panel'); panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-labelledby','famTitle');
+  panel.appendChild(el('div','fam-grab'));
 
-  box.appendChild(el('h4',null,'Add a family member'));
-  const row=el('div','addrow2');
-  const inp=document.createElement('input'); inp.id='famEmail'; inp.type='email'; inp.placeholder='their@email.com'; inp.value=keepEmail; inp.autocomplete='off';
-  inp.style.cssText='font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)';
-  const add=el('button',null,'Add'); add.type='button'; add.onclick=()=>addMember(inp.value);
-  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') addMember(inp.value); });
-  row.append(inp,add); box.appendChild(row);
-  const m=el('div','msg', famMsg); m.style.color= famOk ? 'var(--green)' : 'var(--red)'; box.appendChild(m);
+  // header
+  const head=el('div','fam-head'); const ttl=el('div','ttl');
+  const h=el('h3',null,'Family'); h.id='famTitle'; ttl.append(h, el('p',null,'Share shopping lists with the people you live with.'));
+  const x=document.createElement('button'); x.className='icon-btn'; x.type='button'; x.setAttribute('aria-label','Close'); x.innerHTML=ICON.close; x.onclick=closeFamily;
+  head.append(ttl,x); panel.appendChild(head);
 
-  box.appendChild(el('h4',null,'Lists shared with me'));
-  if(!sharedWithMe.length) box.appendChild(el('div','none','Nobody has added you yet.'));
-  for(const p of sharedWithMe){
-    const r=el('div','prow');
-    const n=el('div','pn',p.name); n.appendChild(el('small',null,p.email||'')); r.appendChild(n);
-    if(!myFamily[p.uid]){ const b=el('button',null,'Share mine back'); b.onclick=()=>shareWith(p.uid, p.name); r.appendChild(b); }
-    const o=el('button','go','Open'); o.onclick=()=>{ closeFamily(); openList(p.uid); }; r.appendChild(o);
-    box.appendChild(r);
+  const body=el('div','fam-body');
+
+  // invite card
+  const card=el('section','fam-card');
+  card.appendChild(el('h4',null,'Invite a family member'));
+  card.appendChild(el('p','lead','Enter the email they registered with. They\'ll be able to see and edit your list.'));
+  const form=document.createElement('form'); form.className='fam-invite'; form.noValidate=true;
+  const field=el('label','fam-field'); field.appendChild(iconEl('mail'));
+  const inp=document.createElement('input'); inp.id='famEmail'; inp.type='email'; inp.placeholder='name@example.com'; inp.value=keepEmail; inp.autocomplete='off'; inp.inputMode='email'; inp.setAttribute('aria-label','Family member\'s email');
+  field.appendChild(inp);
+  const add=document.createElement('button'); add.type='submit'; add.className='btn btn-primary'; add.id='famAddBtn'; add.disabled=famBusy;
+  if(famBusy){ add.appendChild(el('span','spin')); add.setAttribute('aria-label','Adding'); } else add.textContent='Add';
+  form.append(field, add);
+  form.onsubmit=e=>{ e.preventDefault(); if(!famBusy) addMember(inp.value); };
+  card.appendChild(form);
+  if(famMsg){ const a=el('div','fam-alert '+(famOk?'ok':'err')); a.setAttribute('role','status'); a.appendChild(iconEl(famOk?'ok':'err')); a.appendChild(el('span','msg',famMsg)); card.appendChild(a); }
+  body.appendChild(card);
+
+  // members
+  const people=famPeople();
+  const sec=el('section');
+  const sh=el('div','fam-sec-head'); sh.appendChild(el('h4',null,'Members')); if(people.length) sh.appendChild(el('span','num',String(people.length)));
+  sec.appendChild(sh);
+  if(!people.length){
+    const e=el('div','members fam-empty'); const ic=el('div','ic'); ic.innerHTML=ICON.people; e.appendChild(ic);
+    e.appendChild(el('b',null,'No family members yet')); e.appendChild(document.createTextNode('Add someone above to start sharing your list.'));
+    sec.appendChild(e);
+  } else {
+    const list=el('div','members');
+    for(const p of people){
+      const m=el('div','member'); m.dataset.uid=p.uid;
+      const top=el('div','top');
+      const av=el('div','avatar',initialsOf(p.name)); av.style.background=avatarColor(p.uid); av.setAttribute('aria-hidden','true');
+      const who=el('div','who2'); who.appendChild(el('div','nm',p.name)); if(p.email) who.appendChild(el('div','em',p.email));
+      top.append(av,who); m.appendChild(top);
+
+      const bd=el('div','badges');
+      const b1=el('span','badge2'+(p.canEditMine?' on':'')); if(p.canEditMine) b1.appendChild(iconEl('check')); b1.append(p.canEditMine?'Can edit your list':'No access to your list');
+      const b2=el('span','badge2'+(p.sharedWithMe?' on':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.sharedWithMe?'Shared their list with you':'Hasn\'t shared their list');
+      bd.append(b1,b2); m.appendChild(bd);
+
+      if(famConfirm===p.uid){
+        const c=el('div','confirm');
+        c.appendChild(el('div',null,`Remove ${p.name}'s access to your list? They won't be able to see or edit it anymore.`));
+        const r=el('div','row2');
+        const cancel=el('button','btn','Cancel'); cancel.type='button'; cancel.onclick=()=>{ famConfirm=null; renderFamily(); };
+        const yes=el('button','btn btn-danger-solid','Remove'); yes.type='button'; yes.onclick=()=>{ famConfirm=null; removeMember(p.uid,p.name); };
+        r.append(cancel,yes); c.appendChild(r); m.appendChild(c);
+      } else {
+        const acts=el('div','acts');
+        if(p.sharedWithMe){ const o=el('button','btn btn-soft','Open their list'); o.type='button'; o.onclick=()=>{ closeFamily(); openList(p.uid); }; acts.appendChild(o); }
+        if(!p.canEditMine){ const s=el('button','btn','Share my list'); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email); acts.appendChild(s); }
+        acts.appendChild(el('span','sp'));
+        if(p.canEditMine){ const rm=el('button','btn btn-danger','Remove'); rm.type='button'; rm.onclick=()=>{ famConfirm=p.uid; renderFamily(); }; acts.appendChild(rm); }
+        m.appendChild(acts);
+      }
+      list.appendChild(m);
+    }
+    sec.appendChild(list);
   }
-
-  box.appendChild(el('h4',null,'Who can edit my list'));
-  const fam=Object.entries(myFamily);
-  if(!fam.length) box.appendChild(el('div','none','Only you, for now.'));
-  for(const [fid,fname] of fam){
-    const r=el('div','prow');
-    r.appendChild(el('div','pn',String(fname||'Family member')));
-    const b=el('button',null,'Remove'); b.onclick=()=>removeMember(fid, fname); r.appendChild(b);
-    box.appendChild(r);
-  }
-  const c=el('button','clear','Close'); c.onclick=closeFamily; c.style.marginTop='18px'; box.appendChild(c);
-  wrap.appendChild(box);
+  body.appendChild(sec);
+  body.appendChild(el('p','fam-note','Only people you add can open your list. Each person keeps their own list and History.'));
+  panel.appendChild(body);
+  wrap.appendChild(panel);
+  body.scrollTop=scroll;
 }
 async function addMember(email){
   email=(email||'').trim().toLowerCase();
-  if(!email || !email.includes('@')) return renderFamily('Please enter an email address.');
-  if(email===myEmail) return renderFamily("That's your own email 🙂");
+  if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return renderFamily('Please enter a valid email address.');
+  if(email===myEmail) return renderFamily("That's your own email. Enter a family member's email instead.");
+  if(Object.keys(myFamily).length && famPeople().some(p=>p.canEditMine && p.email===email)) return renderFamily('They can already edit your list.', true);
+  famBusy=true; renderFamily('');
   try{
     const snap=await getDoc(doc(fs,'emails/'+email));
-    if(!snap.exists()) return renderFamily('No account with that email yet. Ask them to register in the app first.');
+    if(!snap.exists()){ famBusy=false; return renderFamily('No account uses that email yet. Ask them to register in the app first, then add them again.'); }
     const p=snap.data();
-    await shareWith(p.uid, p.name, true);
-    $('famEmail') && ($('famEmail').value='');
-  }catch(e){ renderFamily("Couldn't add them. Check your connection and try again."); }
+    if(myFamily[p.uid]){ famBusy=false; return renderFamily((p.name||'They')+' can already edit your list.', true); }
+    famBusy=false;
+    await shareWith(p.uid, p.name, email);
+    const i=$('famEmail'); if(i) i.value='';
+  }catch(e){ famBusy=false; renderFamily("Couldn't add them. Check your connection and try again."); }
 }
-async function shareWith(fid, fname, fromAdd){
+async function shareWith(fid, fname, femail){
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}}, {merge:true});
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}}, {merge:true});
     await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, at:Date.now()});
-    renderFamily((fname||'They')+' can now see and edit your list ✓', true);
-  }catch(e){ renderFamily("Couldn't share. Please try again."); }
+    renderFamily((fname||'They')+' can now see and edit your list.', true);
+  }catch(e){ renderFamily("Couldn't share your list. Please try again."); }
 }
 async function removeMember(fid, fname){
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}}, {merge:true});
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}}, {merge:true});
     await deleteDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid));
-    renderFamily((fname||'They')+' can no longer see your list.', true);
-  }catch(e){ renderFamily("Couldn't remove. Please try again."); }
+    renderFamily((fname||'They')+' no longer has access to your list.', true);
+  }catch(e){ renderFamily("Couldn't remove them. Please try again."); }
 }
 
 // ---- boot ----
@@ -590,7 +653,7 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ myFamily=(s.exists() && s.data().family)||{}; if(famOpen) renderFamily(); }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; if(famOpen) renderFamily(); }, ()=>{});
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
       sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||'Family member'), email:String(d.data().email||'')}));
       renderSwitcher(); if(famOpen) renderFamily();
