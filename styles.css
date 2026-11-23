@@ -181,3 +181,17 @@ main{padding:4px 12px}
 .fam-sheet .fam-field input{width:auto;padding:12px 0;border:0;border-radius:0;background:none}
 .fam-sheet .fam-field input:focus,.fam-sheet .fam-field input:focus-visible{outline:none}
 @media (min-width:600px){ .fam-grab{display:none} .fam-head{padding-top:18px} }
+.role-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
+.role-opt{display:flex;align-items:flex-start;gap:10px;text-align:left;padding:12px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.role-opt .dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);margin-top:1px;display:grid;place-items:center}
+.role-opt.on{border-color:var(--green);background:var(--green-l)}
+.role-opt.on .dot{border-color:var(--green)}
+.role-opt.on .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--green)}
+.role-opt .txt b{display:block;font-size:14px}
+.role-opt .txt small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
+.role-opt:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.badge2.on.view{background:rgba(242,169,59,.16);color:#8a5a12}
+@media (prefers-color-scheme: dark){ .badge2.on.view{color:#f2c27a} }
+.viewonly{background:rgba(242,169,59,.14);border:1px solid rgba(242,169,59,.35);color:var(--ink);border-radius:14px;padding:10px 14px;margin:4px 0 10px;font-size:14px;line-height:1.4}
+.item.ro .check{cursor:default;opacity:.55}
+.item.ro .body{cursor:default}
