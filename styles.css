@@ -9,6 +9,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,-apple-system,sans-serif}
+html[lang=ar] body,html[lang=ar] button,html[lang=ar] input{font-family:Tajawal,Nunito,system-ui,-apple-system,sans-serif}
 body{padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 110px) env(safe-area-inset-left)}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:16px 16px 10px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -195,3 +196,24 @@ main{padding:4px 12px}
 .viewonly{background:rgba(242,169,59,.14);border:1px solid rgba(242,169,59,.35);color:var(--ink);border-radius:14px;padding:10px 14px;margin:4px 0 10px;font-size:14px;line-height:1.4}
 .item.ro .check{cursor:default;opacity:.55}
 .item.ro .body{cursor:default}
+
+/* ---- language switch ---- */
+.hero{position:relative}
+.lang-btn{position:absolute;top:14px;inset-inline-end:14px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;font:inherit;font-weight:800;font-size:14px;border-radius:99px;padding:6px 14px;cursor:pointer}
+.feature em{font-style:normal}
+/* ---- right-to-left (Arabic) ---- */
+html[lang=ar] *{letter-spacing:0 !important}
+html[lang=ar] .label{text-transform:none;font-size:13px}
+html[lang=ar] h1{font-size:22px}
+[dir=rtl] .toolbar .who-am-i{margin-left:0;margin-right:auto}
+[dir=rtl] .gh .n{margin-left:0;margin-right:auto}
+[dir=rtl] .badges{margin:10px 54px 0 0}
+[dir=rtl] .member .acts{margin:12px 54px 0 0}
+[dir=rtl] .confirm{margin:12px 54px 0 0}
+[dir=rtl] .role-opt{text-align:right}
+[dir=rtl] .trip .chev{transform:scaleX(-1)}
+[dir=rtl] .trip[open] .chev{transform:rotate(90deg)}
+[dir=rtl] #eCats{padding-right:0}
+.features{position:relative;z-index:1}
+[dir=rtl] input[type=email]{direction:ltr;text-align:right}
+[dir=rtl] input[type=email]::placeholder{text-align:right}
