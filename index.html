@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Our Shopping List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f4ee; --card:#ffffff; --ink:#1f2a24; --muted:#6c7a71; --line:#e6e2d8;
+    --green:#1f8a5b; --green-d:#166b46; --green-l:#e3f3ea; --amber:#f2a93b; --red:#d9534f;
+    --radius:16px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#121714; --card:#1c231f; --ink:#eef3ef; --muted:#97a69c; --line:#2b352f; --green-l:#1c3a2b; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,-apple-system,sans-serif}
+  body{padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 110px) env(safe-area-inset-left)}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:16px 16px 10px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px;margin-top:2px}
+  .mode{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .mode button{border:0;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:14px;padding:8px 14px;border-radius:999px;cursor:pointer}
+  .mode button.on{background:var(--green);color:#fff}
+  .progress{height:8px;background:var(--line);border-radius:99px;margin-top:12px;overflow:hidden}
+  .progress i{display:block;height:100%;width:0;background:var(--green);transition:width .3s}
+  .status{font-size:13px;color:var(--muted);margin:8px 16px 0;min-height:0}
+  .status.warn{color:#a8661b}
+  main{padding:4px 12px}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:6px 4px 10px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap}
+  .chip.on{background:var(--green);border-color:var(--green);color:#fff}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800;margin:14px 6px 6px}
+  .group{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
+  .gh{display:flex;align-items:center;gap:8px;padding:10px 14px;font-weight:800;font-size:15px;border-bottom:1px solid var(--line)}
+  .gh .n{margin-left:auto;color:var(--muted);font-weight:700;font-size:13px}
+  .item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);min-height:56px}
+  .item:last-child{border-bottom:0}
+  .check{flex:none;width:28px;height:28px;border-radius:50%;border:2.5px solid var(--green);background:none;display:grid;place-items:center;cursor:pointer;padding:0}
+  .check svg{opacity:0;transition:opacity .15s}
+  .item.done .check{background:var(--green)}
+  .item.done .check svg{opacity:1}
+  .body{flex:1;min-width:0;cursor:pointer}
+  .name{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+  .item.done .name{text-decoration:line-through;color:var(--muted)}
+  .meta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+  .who{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--green-l);color:var(--green-d);font-size:11px;font-weight:800}
+  @media (prefers-color-scheme: dark){ .who{color:#8fe0b6} }
+  .qty{display:flex;align-items:center;gap:4px}
+  .qty button,.del{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:18px;font-weight:800;cursor:pointer;display:grid;place-items:center;padding:0}
+  .qty span{min-width:22px;text-align:center;font-weight:800}
+  .del{color:var(--red);font-size:16px}
+  .shop .item{min-height:66px}
+  .shop .name{font-size:19px}
+  .shop .check{width:34px;height:34px}
+  .badge{background:var(--amber);color:#3a2500;font-weight:800;border-radius:99px;padding:1px 8px;font-size:13px}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px}
+  .empty b{display:block;font-size:40px;margin-bottom:8px}
+  .clear{display:block;width:100%;margin:6px 0 16px;border:1px dashed var(--line);background:none;color:var(--muted);font:inherit;font-weight:700;padding:12px;border-radius:var(--radius);cursor:pointer}
+  .addbar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(0,0,0,.06)}
+  .addrow{display:flex;gap:8px}
+  .addrow input{flex:1;min-width:0;font:inherit;font-size:17px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);outline:none}
+  .addrow input:focus{border-color:var(--green)}
+  .addrow button{flex:none;border:0;background:var(--green);color:#fff;font:inherit;font-weight:800;font-size:16px;padding:0 18px;border-radius:12px;cursor:pointer}
+  .catpick{display:flex;gap:6px;overflow-x:auto;margin-top:8px;scrollbar-width:none}
+  .catpick::-webkit-scrollbar{display:none}
+  .catpick .chip{padding:5px 10px;font-size:13px}
+  .hidden{display:none!important}
+  .sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.35);display:flex;align-items:flex-end}
+  .sheet .box{background:var(--card);width:100%;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h3{margin:0 0 12px}
+  .sheet label{display:block;font-size:13px;color:var(--muted);font-weight:700;margin:10px 0 4px}
+  .sheet input{width:100%;font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .sheet .row{display:flex;gap:8px;margin-top:16px}
+  .sheet .row button{flex:1;padding:13px;border-radius:12px;font:inherit;font-weight:800;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+  .sheet .row .primary{background:var(--green);color:#fff;border-color:var(--green)}
+  .sheet .row .danger{color:var(--red)}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <h1>🛒 Our Shopping List</h1>
+      <div class="sub" id="summary">Loading…</div>
+    </div>
+    <div class="mode">
+      <button id="mPlan" class="on">List</button>
+      <button id="mShop">Shop</button>
+    </div>
+  </div>
+  <div class="progress"><i id="bar"></i></div>
+</header>
+<div class="status" id="status"></div>
+<main id="main"></main>
+
+<div class="addbar" id="addbar">
+  <form class="addrow" id="addForm" autocomplete="off">
+    <input id="addInput" placeholder="Add an item… e.g. 2 milk" enterkeyhint="done">
+    <button type="submit">Add</button>
+  </form>
+  <div class="catpick" id="catPick"></div>
+</div>
+
+<div class="sheet hidden" id="sheet">
+  <div class="box">
+    <h3>Edit item</h3>
+    <label>Name</label><input id="eName">
+    <label>Note (brand, size…)</label><input id="eNote" placeholder="optional">
+    <label>Section</label><div class="chips" id="eCats" style="padding-left:0"></div>
+    <div class="row">
+      <button class="danger" id="eDel">Delete</button>
+      <button id="eCancel">Cancel</button>
+      <button class="primary" id="eSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ===== 1) PASTE YOUR FIREBASE CONFIG HERE (from Firebase console → Project settings → Your apps → Web app) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyBme9LUlSJIZ9zogsrJst4THDI9XcTUV84",
+  authDomain: "family-shopping-list-dd093.firebaseapp.com",
+  projectId: "family-shopping-list-dd093",
+  storageBucket: "family-shopping-list-dd093.firebasestorage.app",
+  messagingSenderId: "819867077057",
+  appId: "1:819867077057:web:47ea1b536de3f39f078740"
+};
+// ==============================================================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+const CATS = [
+  {id:'produce', label:'Fruit & Veg', e:'🥬'},
+  {id:'dairy', label:'Dairy & Eggs', e:'🥛'},
+  {id:'meat', label:'Meat & Fish', e:'🍗'},
+  {id:'bakery', label:'Bakery', e:'🍞'},
+  {id:'pantry', label:'Pantry', e:'🥫'},
+  {id:'frozen', label:'Frozen', e:'🧊'},
+  {id:'drinks', label:'Drinks', e:'🧃'},
+  {id:'snacks', label:'Snacks', e:'🍫'},
+  {id:'household', label:'Household', e:'🧻'},
+  {id:'personal', label:'Personal care', e:'🧴'},
+  {id:'baby', label:'Baby', e:'🍼'},
+  {id:'other', label:'Other', e:'📦'},
+];
+const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
+const KEYWORDS = {
+  produce:'apple banana orange lemon lime tomato potato onion garlic cucumber lettuce carrot pepper spinach parsley mint coriander cilantro fruit veg vegetable grape mango avocado zucchini eggplant date dates berries strawberr watermelon melon herbs ginger',
+  dairy:'milk laban yogurt yoghurt cheese butter cream egg eggs labneh halloumi feta',
+  meat:'chicken beef lamb meat mince fish shrimp salmon tuna steak sausage turkey camel',
+  bakery:'bread bun buns pita samoon croissant cake tortilla toast muffin',
+  pantry:'rice pasta flour sugar salt oil olive spice spices cumin tea coffee beans lentil lentils sauce ketchup mayo honey jam cereal oats vinegar tahini hummus noodles',
+  frozen:'frozen ice cream icecream peas nuggets fries',
+  drinks:'water juice soda cola pepsi drink drinks',
+  snacks:'chips chocolate biscuit biscuits cookies nuts snack snacks candy popcorn',
+  household:'tissue tissues toilet paper detergent soap dish bleach bag bags foil cleaner sponge napkins',
+  personal:'shampoo toothpaste toothbrush deodorant lotion conditioner razor',
+  baby:'diaper diapers nappies wipes formula baby',
+};
+function guessCat(name){
+  const w = name.toLowerCase();
+  for (const [cat, list] of Object.entries(KEYWORDS)){
+    for (const k of list.split(' ')) if (k && new RegExp('\\b'+k).test(w)) return cat;
+  }
+  return 'other';
+}
+
+// ---- state ----
+let db=null, user=null, me=null, items=new Map(), recent=[], mode='plan', pickedCat=null, offline=false;
+const names = {}; // id -> display name
+let editing=null, editCat=null;
+const $ = id=>document.getElementById(id);
+
+try{ mode = localStorage.getItem('shopMode')||'plan'; }catch(e){}
+
+// ---- writes: one at a time per doc ----
+const queues = {};
+function write(path, fn){
+  const prev = queues[path]||Promise.resolve();
+  const p = prev.then(fn).catch(err=>{ handleWriteError(err); });
+  queues[path]=p; return p;
+}
+function handleWriteError(err){
+  const code = err && err.code;
+  if (code==='permission-denied') setStatus("This phone isn't allowed to change the list. Check the Firestore rules in the setup guide.", true);
+  else setStatus("Couldn't save that change. Check your connection and try again.", true);
+}
+function setStatus(msg, warn){ const s=$('status'); s.textContent=msg||''; s.className='status'+(warn?' warn':''); }
+
+// local fallback (no sync) so the page still works
+function localOnly(){ return !db; }
+
+async function addItem(raw){
+  let text = raw.trim(); if(!text) return;
+  let qty = 1;
+  const m = text.match(/^(\d+)\s*[x×]?\s+(.+)$/i) || text.match(/^(.+?)\s+[x×]\s*(\d+)$/i);
+  if (m){ if (/^\d+$/.test(m[1])){ qty=+m[1]; text=m[2]; } else { text=m[1]; qty=+m[2]; } }
+  text = text.charAt(0).toUpperCase()+text.slice(1);
+  const existing = [...items.values()].find(i=>!i.done && i.name.toLowerCase()===text.toLowerCase());
+  if (existing){ return changeQty(existing.id, existing.qty+qty); }
+  const cat = pickedCat || guessCat(text);
+  const data = {name:text, qty, cat, note:'', done:false, addedBy:me||null, doneBy:null, createdAt:Date.now()};
+  if (localOnly()){ const id='l'+Date.now(); items.set(id,{id,...data}); render(); return; }
+  const ref = db.collection('items').doc();
+  items.set(ref.id,{id:ref.id,...data}); render();
+  write('items/'+ref.id, ()=>ref.set(data));
+}
+function toggle(id){
+  const it = items.get(id); if(!it) return;
+  const done = !it.done;
+  if (navigator.vibrate) try{navigator.vibrate(12)}catch(e){}
+  items.set(id,{...it,done,doneBy:done?me:null}); render();
+  if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).update({done, doneBy:done?(me||null):null}));
+}
+function changeQty(id, q){
+  const it = items.get(id); if(!it) return;
+  if (q<1) return removeItem(id);
+  items.set(id,{...it,qty:q}); render();
+  if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).update({qty:q}));
+}
+function removeItem(id){
+  const it = items.get(id); if(!it) return;
+  remember([it]);
+  items.delete(id); render();
+  if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).delete());
+}
+function remember(list){
+  let changed=false;
+  for (const it of list){
+    const k = it.name.toLowerCase();
+    recent = recent.filter(r=>r.name.toLowerCase()!==k);
+    recent.unshift({name:it.name, cat:it.cat}); changed=true;
+  }
+  recent = recent.slice(0,30);
+  if (changed && !localOnly()){ const r=recent.slice(); write('meta/recent', ()=>db.doc('meta/recent').set({items:r})); }
+}
+function clearDone(){
+  const done = [...items.values()].filter(i=>i.done);
+  if(!done.length) return;
+  remember(done);
+  for (const it of done){ items.delete(it.id); if(!localOnly()) write('items/'+it.id, ()=>db.doc('items/'+it.id).delete()); }
+  render();
+}
+
+// ---- edit sheet ----
+function openEdit(id){
+  const it = items.get(id); if(!it) return;
+  editing=id; editCat=it.cat;
+  $('eName').value=it.name; $('eNote').value=it.note||'';
+  renderEditCats(); $('sheet').classList.remove('hidden');
+}
+function renderEditCats(){
+  const box=$('eCats'); box.innerHTML='';
+  for (const c of CATS){
+    const b=document.createElement('button'); b.type='button';
+    b.className='chip'+(c.id===editCat?' on':''); b.textContent=c.e+' '+c.label;
+    b.onclick=()=>{editCat=c.id; renderEditCats();};
+    box.appendChild(b);
+  }
+}
+function closeEdit(){ editing=null; $('sheet').classList.add('hidden'); }
+$('eCancel').onclick=closeEdit;
+$('sheet').onclick=e=>{ if(e.target.id==='sheet') closeEdit(); };
+$('eDel').onclick=()=>{ const id=editing; closeEdit(); removeItem(id); };
+$('eSave').onclick=()=>{
+  const id=editing, it=items.get(id); closeEdit(); if(!it) return;
+  const name=$('eName').value.trim()||it.name, note=$('eNote').value.trim();
+  if (name===it.name && note===(it.note||'') && editCat===it.cat) return;
+  items.set(id,{...it,name,note,cat:editCat}); render();
+  if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).update({name,note,cat:editCat}));
+};
+
+// ---- render ----
+function initials(id){
+  if(!id) return '';
+  const n = names[id]; if(!n) return '•';
+  if (id===me) return 'Me';
+  return n.split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase();
+}
+function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+const CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+function itemRow(it){
+  const row = el('div','item'+(it.done?' done':''));
+  const chk = el('button','check'); chk.innerHTML=CHECK_SVG; chk.setAttribute('aria-label', (it.done?'Uncheck ':'Check ')+it.name);
+  chk.onclick=()=>toggle(it.id);
+  const body = el('div','body');
+  const nm = el('div','name'); nm.textContent = it.name;
+  if (it.qty>1 && mode==='shop'){ nm.append(' '); nm.appendChild(el('span','badge','×'+it.qty)); }
+  body.appendChild(nm);
+  const meta = el('div','meta');
+  if (it.note) meta.appendChild(el('span',null,it.note));
+  if (mode==='plan' && it.addedBy && names[it.addedBy]) { const w=el('span','who',initials(it.addedBy)); w.title='Added by '+names[it.addedBy]; meta.appendChild(w); }
+  if (it.done && it.doneBy && names[it.doneBy]) meta.appendChild(el('span',null,'✓ '+(it.doneBy===me?'you':names[it.doneBy].split(' ')[0])));
+  if (meta.childNodes.length) body.appendChild(meta);
+  body.onclick = ()=> mode==='shop' ? toggle(it.id) : openEdit(it.id);
+  row.append(chk, body);
+  if (mode==='plan' && !it.done){
+    const q = el('div','qty');
+    const minus = el('button',null,'−'); minus.onclick=()=>changeQty(it.id,it.qty-1);
+    const plus = el('button',null,'+'); plus.onclick=()=>changeQty(it.id,it.qty+1);
+    q.append(minus, el('span',null,String(it.qty)), plus);
+    row.appendChild(q);
+  }
+  return row;
+}
+
+function render(){
+  const all = [...items.values()];
+  const todo = all.filter(i=>!i.done), done = all.filter(i=>i.done);
+  $('summary').textContent = all.length ? `${todo.length} to get · ${done.length} in cart` : 'Nothing on the list yet';
+  $('bar').style.width = all.length ? (done.length/all.length*100)+'%' : '0';
+  $('mPlan').classList.toggle('on', mode==='plan');
+  $('mShop').classList.toggle('on', mode==='shop');
+  $('addbar').classList.toggle('hidden', mode==='shop');
+  document.body.style.paddingBottom = mode==='shop' ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
+
+  const main = $('main'); main.innerHTML=''; main.className = mode==='shop'?'shop':'';
+
+  if (mode==='plan'){
+    const inList = new Set(todo.map(i=>i.name.toLowerCase()));
+    const quick = recent.filter(r=>!inList.has(r.name.toLowerCase())).slice(0,15);
+    if (quick.length){
+      main.appendChild(el('div','label','Add again'));
+      const chips = el('div','chips');
+      for (const r of quick){
+        const c=el('button','chip','+ '+r.name);
+        c.onclick=()=>{ const keep=pickedCat; pickedCat=r.cat; addItem(r.name); pickedCat=keep; };
+        chips.appendChild(c);
+      }
+      main.appendChild(chips);
+    }
+  }
+
+  if (!all.length){
+    const e = el('div','empty'); e.innerHTML='<b>🧺</b>';
+    e.appendChild(document.createTextNode(mode==='shop' ? 'The list is empty — switch to List to add items.' : 'Add your first item below. Anything you add shows up on both phones.'));
+    main.appendChild(e); return;
+  }
+
+  if (todo.length){
+    for (const c of CATS){
+      const list = todo.filter(i=>(CAT[i.cat]?i.cat:'other')===c.id).sort((a,b)=>a.name.localeCompare(b.name));
+      if (!list.length) continue;
+      const g = el('div','group');
+      const gh = el('div','gh', c.e+' '+c.label); gh.appendChild(el('span','n',String(list.length)));
+      g.appendChild(gh);
+      list.forEach(i=>g.appendChild(itemRow(i)));
+      main.appendChild(g);
+    }
+  } else if (mode==='shop'){
+    const e = el('div','empty'); e.innerHTML='<b>🎉</b>'; e.appendChild(document.createTextNode('All done! Everything is in the cart.'));
+    main.appendChild(e);
+  }
+
+  if (done.length){
+    main.appendChild(el('div','label','In the cart ('+done.length+')'));
+    const g = el('div','group');
+    done.sort((a,b)=>a.name.localeCompare(b.name)).forEach(i=>g.appendChild(itemRow(i)));
+    main.appendChild(g);
+    const clr = el('button','clear','Clear checked items'); clr.onclick=clearDone;
+    main.appendChild(clr);
+  }
+}
+
+function renderCatPick(){
+  const box=$('catPick'); box.innerHTML='';
+  const auto=el('button','chip'+(pickedCat===null?' on':''),'✨ Auto');
+  auto.onclick=()=>{pickedCat=null; renderCatPick();}; box.appendChild(auto);
+  for (const c of CATS){
+    const b=el('button','chip'+(pickedCat===c.id?' on':''), c.e+' '+c.label);
+    b.type='button'; b.onclick=()=>{pickedCat=c.id; renderCatPick();};
+    box.appendChild(b);
+  }
+}
+
+$('addForm').addEventListener('submit', e=>{ e.preventDefault(); const v=$('addInput').value; $('addInput').value=''; addItem(v); pickedCat=null; renderCatPick(); $('addInput').focus(); });
+$('mPlan').onclick=()=>{mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
+$('mShop').onclick=()=>{mode='shop'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
+
+
+// ---- Firebase adapter (same shape the app code uses) ----
+function mkDb(fs, base){
+  const wrapDoc = r => ({
+    id: r.id,
+    set: d => setDoc(r, d),
+    update: d => updateDoc(r, d),
+    delete: () => deleteDoc(r),
+    onSnapshot: (n, e) => fsSnap(r, {includeMetadataChanges:true}, s => n({exists:s.exists(), data:()=>s.data(), metadata:s.metadata}), e)
+  });
+  return {
+    doc: p => wrapDoc(doc(fs, base + p)),
+    collection: p => ({
+      doc: id => wrapDoc(id ? doc(fs, base + p, id) : doc(collection(fs, base + p))),
+      onSnapshot: (n, e) => fsSnap(collection(fs, base + p), {includeMetadataChanges:true},
+        s => n({docs: s.docs.map(d => ({id:d.id, data:()=>d.data()})), metadata:s.metadata}), e)
+    })
+  };
+}
+function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+function newCode(){ const a=new Uint8Array(12); crypto.getRandomValues(a); return 'list-'+[...a].map(b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join(''); }
+function shareLink(code){ return location.origin + location.pathname + '#' + code; }
+
+// ---- setup screen ----
+function showSetup(code){
+  return new Promise(resolve=>{
+    const wrap = document.createElement('div'); wrap.className='sheet';
+    wrap.innerHTML = `<div class="box">
+      <h3>Welcome 👋</h3>
+      <label>Your name (shown on items you add)</label><input id="sName" placeholder="e.g. Ahmed">
+      <div class="row"><button class="primary" id="sGo">Start</button></div></div>`;
+    document.body.appendChild(wrap);
+    const go = ()=>{ const n=wrap.querySelector('#sName').value.trim(); if(!n) return; store('shopName', n); wrap.remove(); resolve(n); };
+    wrap.querySelector('#sGo').onclick=go;
+    wrap.querySelector('#sName').addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
+  });
+}
+function addShareButton(code){
+  const b = el('button','chip','📤 Share list'); b.style.margin='8px 16px 0';
+  b.onclick = async ()=>{
+    const link = shareLink(code);
+    try { if (navigator.share){ await navigator.share({title:'Our Shopping List', text:'Open our shared shopping list:', url:link}); return; } } catch(e){ return; }
+    try { await navigator.clipboard.writeText(link); setStatus('Link copied — send it to your wife on WhatsApp.'); }
+    catch(e){ setStatus('Send this link: ' + link); }
+  };
+  $('status').before(b);
+}
+
+// ---- boot ----
+renderCatPick(); render();
+(async ()=>{
+  if (firebaseConfig.apiKey === 'PASTE_HERE'){
+    setStatus('Setup not finished: paste your Firebase config at the top of index.html.', true);
+    $('summary').textContent='Not syncing'; return;
+  }
+  // list code: from the link (#list-...) or saved on this phone, else create one
+  let code = (location.hash||'').slice(1);
+  if (!/^list-[a-z0-9]{12,}$/.test(code)) code = store('shopList') || newCode();
+  store('shopList', code);
+  if (location.hash.slice(1)!==code) history.replaceState(null,'','#'+code);
+
+  me = store('shopName') || await showSetup(code);
+  names[me] = me;
+  addShareButton(code);
+
+  const app = initializeApp(firebaseConfig);
+  const fs = initializeFirestore(app, { localCache: persistentLocalCache() });
+  const auth = getAuth(app);
+  try { await signInAnonymously(auth); }
+  catch(e){ setStatus("Couldn't connect to Firebase. Check that Anonymous sign-in is turned on (setup guide step 3).", true); return; }
+
+  db = mkDb(fs, 'lists/' + code + '/');
+  let timer = setTimeout(()=>setStatus("Can't reach the list yet — showing what's on this phone. It will update when you're back online.", true), 10000);
+  db.collection('items').onSnapshot(snap=>{
+    if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus(''); }
+    items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, createdAt:+v.createdAt||0}]; }));
+    for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
+    if (!editing) render();
+  }, err=>{ clearTimeout(timer); setStatus(err.code==='permission-denied' ? "Firebase refused access — check the Firestore rules (setup guide step 4)." : "Live updates stopped. Reopen the app to reconnect.", true); });
+
+  db.doc('meta/recent').onSnapshot(snap=>{
+    const v = snap.exists ? snap.data() : null;
+    recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
+    if (!editing) render();
+  }, ()=>{});
+})();
+</script>
+</body>
+</html>
