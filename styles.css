@@ -118,6 +118,20 @@ main{padding:4px 12px}
 @media (max-width:420px){ h1{font-size:19px} .mode button{padding:7px 10px;font-size:13px} }
 .switcher{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none}
 .switcher::-webkit-scrollbar{display:none}
+.listbar{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none}
+.listbar::-webkit-scrollbar{display:none}
+.listbar .chip{padding:6px 12px;font-size:13.5px;font-weight:700}
+.listbar .chip:not(.on){background:transparent}
+.chip.new{border-style:dashed;color:var(--green);background:transparent}
+.chip.new:hover{background:rgba(46,139,87,.08)}
+.sheet .sub{margin:-6px 0 4px;color:var(--muted);font-size:14px;line-height:1.4}
+.icon-pick{padding:2px 0 4px;flex-wrap:wrap}
+.icon-pick .chip{font-size:20px;line-height:1;padding:7px 9px;min-width:44px}
+.lerr{color:var(--red);font-size:14px;margin-top:10px}
+.list-sheet .box{max-width:560px;margin:0 auto}
+.list-sheet{justify-content:center}
+.confirm.list-confirm{margin:14px 0 0}
+[dir=rtl] .confirm.list-confirm{margin:14px 0 0}
 .toolbar .who-am-i{margin-left:auto;font-size:13px;color:var(--muted)}
 
 /* ---- Family page ---- */
