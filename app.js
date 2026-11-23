@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=9";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=10";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -66,7 +66,7 @@ try{ mode = localStorage.getItem('shopMode')||'plan'; }catch(e){}
 // ---- writes: one at a time per doc ----
 const queues = {};
 function write(path, fn){
-  path = (owner||'')+':'+path;
+  path = curBase+path;
   const prev = queues[path]||Promise.resolve();
   const p = prev.then(fn).catch(err=>{ handleWriteError(err); });
   queues[path]=p; return p;
@@ -189,6 +189,7 @@ function renderEditCats(){
 }
 function closeEdit(){ editing=null; $('sheet').classList.add('hidden'); }
 $('eCancel').onclick=closeEdit;
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && listSheet) closeListSheet(); });
 $('sheet').onclick=e=>{ if(e.target.id==='sheet') closeEdit(); };
 $('eDel').onclick=()=>{ const id=editing; closeEdit(); removeItem(id); };
 $('eSave').onclick=()=>{
@@ -459,6 +460,11 @@ $('authForm').addEventListener('submit', async e=>{
 
 // ---- family: own list + lists shared with me ----
 let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
+// several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
+let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false;
+const pendingLists = new Set();
+const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
+const curList = () => lists.find(l=>l.id===listId) || null;
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
@@ -469,8 +475,113 @@ function renderSwitcher(){
     box.appendChild(b);
   }
   const fam=el('button','chip',t('family')); fam.onclick=openFamily; fam.setAttribute('aria-haspopup','dialog'); box.appendChild(fam);
+  updateTitle();
+}
+function updateTitle(){
   const op = sharedWithMe.find(x=>x.uid===owner);
-  $('title').textContent = '🛒 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
+  const l = curList();
+  if (l) $('title').textContent = l.emoji + ' ' + (owner===uid || !op ? l.name : t('shoppingListName',{list:l.name, name:op.name}));
+  else $('title').textContent = '🛒 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
+}
+function renderLists(){
+  const box=$('listbar'); if(!box) return; box.innerHTML='';
+  const ed = canEdit();
+  if (!lists.length && !ed){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const all = [{id:'main', name:t('mainList'), emoji:'🛒'}, ...lists];
+  for (const l of all){
+    const on = l.id===listId, editable = on && l.id!=='main' && ed;
+    const b=el('button','chip'+(on?' on':''), l.emoji+' '+l.name+(editable?' ✎':''));
+    b.type='button'; b.dataset.list=l.id;
+    if (editable) b.setAttribute('aria-label', t('editListAria',{name:l.name}));
+    b.onclick=()=>{ if(!on) openList(owner, l.id); else if(editable) openListSheet(l); };
+    box.appendChild(b);
+  }
+  if (ed){ const n=el('button','chip new',t('newList')); n.type='button'; n.id='newListBtn'; n.onclick=()=>openListSheet(null); box.appendChild(n); }
+  const act = box.querySelector('.chip.on'); if (act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
+}
+
+// ---- create / rename / delete a list ----
+const LIST_ICONS = ['🛒','🎉','💊','🏠','🍖','🧺','🎁','🌙','🏖️','👶','🧹','📦'];
+let listSheet=null;
+function closeListSheet(){ listSheet=null; const s=$('listSheet'); if(s) s.remove(); }
+function openListSheet(l){
+  if(!canEdit()) return viewOnly();
+  listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', confirm:false, err:''};
+  renderListSheet();
+  setTimeout(()=>{ const i=$('lName'); if(i && !l) i.focus(); },150);
+}
+function renderListSheet(){
+  if(!listSheet) return;
+  const S=listSheet;
+  let wrap=$('listSheet');
+  if (wrap){ const i=$('lName'); if(i) S.name=i.value; }
+  else { wrap=el('div','sheet list-sheet'); wrap.id='listSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeListSheet(); }; document.body.appendChild(wrap); }
+  wrap.innerHTML='';
+  const box=el('div','box'); box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true');
+  box.appendChild(el('h3',null,S.edit?t('editListTitle'):t('newListTitle')));
+  if(!S.edit) box.appendChild(el('p','sub',t('newListSub')));
+  const lb=el('label',null,t('listName')); lb.htmlFor='lName'; box.appendChild(lb);
+  const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
+  inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveList(); } };
+  box.appendChild(inp);
+  box.appendChild(el('label',null,t('listIcon')));
+  const icons=el('div','chips icon-pick');
+  for (const ic of LIST_ICONS){ const b=el('button','chip'+(ic===S.emoji?' on':''),ic); b.type='button'; b.onclick=()=>{ S.emoji=ic; renderListSheet(); }; icons.appendChild(b); }
+  box.appendChild(icons);
+  if (S.err) box.appendChild(el('div','lerr',S.err));
+  if (S.confirm){
+    const c=el('div','confirm list-confirm'); c.appendChild(el('div',null,t('confirmDeleteList',{name:S.edit.name})));
+    const r=el('div','row2');
+    const no=el('button','btn',t('cancel')); no.type='button'; no.onclick=()=>{ S.confirm=false; renderListSheet(); };
+    const yes=el('button','btn btn-danger-solid',t('deleteList')); yes.type='button'; yes.id='lDelYes'; yes.onclick=()=>deleteList(S.edit);
+    r.append(no,yes); c.appendChild(r); box.appendChild(c);
+  } else {
+    const row=el('div','row');
+    if (S.edit && myRoleOn(owner)==='owner'){ const d=el('button','danger',t('delete')); d.type='button'; d.id='lDel'; d.onclick=()=>{ S.name=$('lName').value; S.confirm=true; renderListSheet(); }; row.appendChild(d); }
+    const c=el('button',null,t('cancel')); c.type='button'; c.onclick=closeListSheet;
+    const ok=el('button','primary',S.edit?t('save'):t('create')); ok.type='button'; ok.id='lSave'; ok.onclick=saveList;
+    row.append(c,ok); box.appendChild(row);
+  }
+  wrap.appendChild(box);
+}
+function saveList(){
+  const S=listSheet; if(!S) return;
+  const name=($('lName').value||'').trim().slice(0,40);
+  if(!name){ S.err=t('enterListName'); return renderListSheet(); }
+  const o=owner;
+  if (S.edit){
+    const id=S.edit.id;
+    lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji}:l);
+    setDoc(doc(fs,'ulists/'+o+'/lists/'+id), {name, emoji:S.emoji}, {merge:true}).catch(handleWriteError);
+    closeListSheet(); renderLists(); updateTitle(); return;
+  }
+  const ref=doc(collection(fs,'ulists/'+o+'/lists'));
+  const data={name, emoji:S.emoji, createdAt:Date.now(), createdBy:me||null};
+  pendingLists.add(ref.id);
+  setDoc(ref, data).catch(err=>{ pendingLists.delete(ref.id); handleWriteError(err); });
+  lists=[...lists,{id:ref.id,...data}];
+  closeListSheet();
+  mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){}
+  openList(o, ref.id);
+  setStatus(t('listCreated',{name}));
+}
+function deleteList(l){
+  if (myRoleOn(owner)!=='owner' || !l || l.id==='main') return;
+  const o=owner, base=listBase(o,l.id);
+  const itemIds=[...items.keys()], tids=tripIds.slice();
+  closeListSheet();
+  lists=lists.filter(x=>x.id!==l.id);
+  openList(o,'main');
+  setStatus(t('listDeleted'));
+  (async()=>{
+    try{
+      await deleteDoc(doc(fs,'ulists/'+o+'/lists/'+l.id));
+      for (const id of itemIds) await deleteDoc(doc(fs, base+'items/'+id));
+      for (const id of tids) await deleteDoc(doc(fs, base+'trips/'+id));
+      await deleteDoc(doc(fs, base+'meta/recent'));
+    }catch(e){ handleWriteError(e); }
+  })();
 }
 function addToolbar(){
   const sw=el('div','switcher'); sw.id='switcher';
@@ -479,18 +590,37 @@ function addToolbar(){
   out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
   const lg=el('button','chip lang-chip',t('langSwitch')); lg.onclick=()=>setLang(isAr?'en':'ar');
   bar.append(out, lg, el('span','who-am-i',t('hi',{name:me})));
-  $('status').before(sw); $('status').before(bar);
+  const lb=el('div','listbar'); lb.id='listbar';
+  $('status').before(sw); $('status').before(lb); $('status').before(bar);
 }
-function openList(o){
+function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
+  if (o!==owner){ lists=[]; listsLoaded=false; }
   owner=o; store('shopOwner', o);
-  items=new Map(); trips=[]; recent=[]; setStatus('');
-  db = mkDb(fs, 'ulists/'+o+'/');
-  renderSwitcher(); render();
-  let timer = setTimeout(()=>setStatus(t('cantReach'), true), 10000);
-  unsubs.push(db.collection('items').onSnapshot(snap=>{
+  listId = lid || store('shopList:'+o) || 'main';
+  if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId)) listId='main';
+  store('shopList:'+o, listId);
+  items=new Map(); trips=[]; tripIds=[]; recent=[]; setStatus('');
+  curBase = listBase(o, listId);
+  db = mkDb(fs, curBase);
+  renderSwitcher(); renderLists(); render();
+  unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
-    if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus(''); }
+    lists = snap.docs.map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}; })
+      .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+    for (const l of lists) pendingLists.delete(l.id);
+    if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
+    if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId) && !pendingLists.has(listId)){
+      closeListSheet(); openList(o,'main'); setStatus(t('listGone'), true); return;
+    }
+    renderLists(); updateTitle();
+  }, ()=>{}));
+  const curListAt = listId;
+  let reachWarn=false;
+  let timer = setTimeout(()=>{ reachWarn=true; setStatus(t('cantReach'), true); }, 10000);
+  unsubs.push(db.collection('items').onSnapshot(snap=>{
+    if (o!==owner || listId!==curListAt) return;
+    if (!snap.metadata.fromCache){ clearTimeout(timer); if(reachWarn){ reachWarn=false; setStatus(''); } }
     items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, doneAt:+v.doneAt||null, createdAt:+v.createdAt||0}]; }));
     if (!snap.metadata.fromCache) autoClearOld();
     for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
@@ -498,8 +628,10 @@ function openList(o){
   }, err=>{ clearTimeout(timer);
     if (err.code==='permission-denied'){ setStatus(t('noAccess'), true); if(o!==uid) setTimeout(()=>openList(uid), 1500); }
     else setStatus(t('liveStopped'), true); }));
+  const myList=listId;
   unsubs.push(db.collection('trips').onSnapshot(snap=>{
-    if (o!==owner) return;
+    if (o!==owner || myList!==listId) return;
+    tripIds = snap.docs.map(d=>d.id);
     trips = snap.docs.map(d=>{ const v=d.data()||{};
       const raw = Array.isArray(v.items) ? v.items.map((i,n)=>[String(n),i]) : Object.entries(v.items||{});
       const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:CAT[i.cat]?i.cat:'other', note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
@@ -510,7 +642,7 @@ function openList(o){
     if (!editing && mode==='trips') render();
   }, ()=>{}));
   unsubs.push(db.doc('meta/recent').onSnapshot(snap=>{
-    if (o!==owner) return;
+    if (o!==owner || myList!==listId) return;
     const v = snap.exists ? snap.data() : null;
     recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
     if (!editing) render();
@@ -703,7 +835,7 @@ renderCatPick(); render();
     fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; familyRoles=d.familyRoles||{}; if(famOpen) renderFamily(); }, ()=>{});
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
       sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||t('familyMember')), email:String(d.data().email||''), role:d.data().role==='view'?'view':'edit'}));
-      renderSwitcher(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
+      renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
     }, ()=>{});
     const last = store('shopOwner');
     openList(last && last!==uid ? last : uid);
