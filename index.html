@@ -103,6 +103,26 @@
   .authcard .switch{text-align:center;margin-top:14px;font-size:14px;color:var(--muted)}
   .linkbtn{background:none;border:0;color:var(--green);font:inherit;font-weight:800;cursor:pointer;padding:0}
   .toolbar{display:flex;gap:8px;align-items:center;margin:8px 16px 0}
+  .trip{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+  .trip summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
+  .trip summary::-webkit-details-marker{display:none}
+  .trip .date{flex:1;min-width:0}
+  .trip .date b{display:block;font-size:16px}
+  .trip .date span{font-size:13px;color:var(--muted)}
+  .trip .count{background:var(--green-l);color:var(--green-d);font-weight:800;font-size:13px;border-radius:99px;padding:3px 10px}
+  .trip .chev{color:var(--muted);transition:transform .2s}
+  .trip[open] .chev{transform:rotate(90deg)}
+  .trip .rows{border-top:1px solid var(--line)}
+  .trip .hrow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:15px}
+  .trip .hrow .n{flex:1;min-width:0}
+  .trip .hrow small{color:var(--muted)}
+  .trip .hrow button{border:1px solid var(--line);background:var(--bg);color:var(--green);font:inherit;font-weight:800;font-size:13px;border-radius:10px;padding:5px 10px;cursor:pointer}
+  .trip .again{display:block;width:calc(100% - 28px);margin:12px 14px 14px;border:0;background:var(--green);color:#fff;font:inherit;font-weight:800;padding:11px;border-radius:12px;cursor:pointer}
+  .stats{display:flex;gap:10px;margin:6px 0 12px}
+  .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:22px}
+  .stat span{font-size:12px;color:var(--muted);font-weight:700}
+  @media (max-width:420px){ h1{font-size:19px} .mode button{padding:7px 10px;font-size:13px} }
   .toolbar .who-am-i{margin-left:auto;font-size:13px;color:var(--muted)}
 </style>
 </head>
@@ -116,6 +136,7 @@
     <div class="mode">
       <button id="mPlan" class="on">List</button>
       <button id="mShop">Shop</button>
+      <button id="mHist">History</button>
     </div>
   </div>
   <div class="progress"><i id="bar"></i></div>
@@ -224,7 +245,7 @@ function guessCat(name){
 // ---- state ----
 let db=null, user=null, me=null, items=new Map(), recent=[], mode='plan', pickedCat=null, offline=false;
 const names = {}; // id -> display name
-let editing=null, editCat=null;
+let editing=null, editCat=null, history=[];
 const $ = id=>document.getElementById(id);
 
 try{ mode = localStorage.getItem('shopMode')||'plan'; }catch(e){}
@@ -294,6 +315,13 @@ function clearDone(){
   const done = [...items.values()].filter(i=>i.done);
   if(!done.length) return;
   remember(done);
+  if (!localOnly()){
+    const trip = {at:Date.now(), by:me||null, items:done.map(i=>({name:i.name, qty:i.qty, cat:i.cat, note:i.note||'', by:i.doneBy||null}))};
+    const ref = db.collection('history').doc();
+    history = [{id:ref.id, ...trip}, ...history];
+    write('history/'+ref.id, ()=>ref.set(trip));
+    setStatus('Trip saved to History ✓');
+  }
   for (const it of done){ items.delete(it.id); if(!localOnly()) write('items/'+it.id, ()=>db.doc('items/'+it.id).delete()); }
   render();
 }
@@ -368,10 +396,12 @@ function render(){
   $('bar').style.width = all.length ? (done.length/all.length*100)+'%' : '0';
   $('mPlan').classList.toggle('on', mode==='plan');
   $('mShop').classList.toggle('on', mode==='shop');
-  $('addbar').classList.toggle('hidden', mode==='shop');
-  document.body.style.paddingBottom = mode==='shop' ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
+  $('mHist').classList.toggle('on', mode==='history');
+  $('addbar').classList.toggle('hidden', mode!=='plan');
+  document.body.style.paddingBottom = mode!=='plan' ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
 
   const main = $('main'); main.innerHTML=''; main.className = mode==='shop'?'shop':'';
+  if (mode==='history'){ renderHistory(main); return; }
 
   if (mode==='plan'){
     const inList = new Set(todo.map(i=>i.name.toLowerCase()));
@@ -414,8 +444,65 @@ function render(){
     const g = el('div','group');
     done.sort((a,b)=>a.name.localeCompare(b.name)).forEach(i=>g.appendChild(itemRow(i)));
     main.appendChild(g);
-    const clr = el('button','clear','Clear checked items'); clr.onclick=clearDone;
+    const clr = el('button','clear','✅ Finish trip & save to History'); clr.onclick=clearDone;
     main.appendChild(clr);
+  }
+}
+
+function fmtDate(t){
+  const d=new Date(t), now=new Date();
+  const day = d.toDateString()===now.toDateString() ? 'Today'
+    : d.toDateString()===new Date(now-864e5).toDateString() ? 'Yesterday'
+    : d.toLocaleDateString(undefined,{weekday:'short', day:'numeric', month:'short', year: d.getFullYear()===now.getFullYear()?undefined:'numeric'});
+  return {day, time:d.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'})};
+}
+function readd(list){
+  const keep=pickedCat; let n=0;
+  for (const it of list){ pickedCat=it.cat; addItem((it.qty>1?it.qty+' ':'')+it.name); n++; }
+  pickedCat=keep;
+  setStatus(n+' item'+(n===1?'':'s')+' added to the list ✓');
+}
+function renderHistory(main){
+  if (!history.length){
+    const e = el('div','empty'); e.innerHTML='<b>🧾</b>';
+    e.appendChild(document.createTextNode('No trips yet. When you finish shopping, tap "Finish trip & save to History" and it will appear here.'));
+    main.appendChild(e); return;
+  }
+  // quick stats
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const thisMonth = history.filter(t=>t.at>=monthStart.getTime()).length;
+  const counts = {};
+  for (const t of history) for (const i of t.items) { const k=i.name.toLowerCase(); counts[k]=(counts[k]||{name:i.name,n:0}); counts[k].n++; }
+  const top = Object.values(counts).sort((a,b)=>b.n-a.n)[0];
+  const stats = el('div','stats');
+  const st=(v,l)=>{ const d=el('div','stat'); d.appendChild(el('b',null,v)); d.appendChild(el('span',null,l)); return d; };
+  stats.append(st(String(history.length),'trips'), st(String(thisMonth),'this month'), st(top?top.name:'—','most bought'));
+  main.appendChild(stats);
+
+  for (const t of history.slice(0,60)){
+    const {day,time} = fmtDate(t.at);
+    const card = document.createElement('details'); card.className='trip';
+    const sum = document.createElement('summary');
+    const dt = el('div','date'); dt.appendChild(el('b',null,day));
+    dt.appendChild(el('span',null, time + (t.by ? ' · by '+(t.by===me?'you':t.by) : '')));
+    sum.append(dt, el('span','count', t.items.length+' item'+(t.items.length===1?'':'s')), el('span','chev','›'));
+    card.appendChild(sum);
+    const rows = el('div','rows');
+    for (const i of t.items){
+      const r = el('div','hrow');
+      r.appendChild(el('span',null,(CAT[i.cat]||CAT.other).e));
+      const n = el('span','n', i.name + (i.qty>1?' ×'+i.qty:''));
+      if (i.note){ n.appendChild(document.createElement('br')); n.appendChild(el('small',null,i.note)); }
+      r.appendChild(n);
+      const b = el('button',null,'+ Add'); b.onclick=()=>readd([i]);
+      r.appendChild(b);
+      rows.appendChild(r);
+    }
+    const again = el('button','again','Add all '+t.items.length+' items to the list');
+    again.onclick=()=>{ readd(t.items); mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render(); };
+    rows.appendChild(again);
+    card.appendChild(rows);
+    main.appendChild(card);
   }
 }
 
@@ -433,6 +520,7 @@ function renderCatPick(){
 $('addForm').addEventListener('submit', e=>{ e.preventDefault(); const v=$('addInput').value; $('addInput').value=''; addItem(v); pickedCat=null; renderCatPick(); $('addInput').focus(); });
 $('mPlan').onclick=()=>{mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
 $('mShop').onclick=()=>{mode='shop'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
+$('mHist').onclick=()=>{mode='history'; render();};
 
 
 // ---- Firebase adapter (same shape the app code uses) ----
@@ -576,6 +664,13 @@ function startList(fs, code, user){
     for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
     if (!editing) render();
   }, err=>{ clearTimeout(timer); setStatus(err.code==='permission-denied' ? "Firebase refused access — please sign out and sign in again." : "Live updates stopped. Reopen the app to reconnect.", true); });
+
+  db.collection('history').onSnapshot(snap=>{
+    history = snap.docs.map(d=>{ const v=d.data()||{}; return {id:d.id, at:+v.at||0, by:v.by?String(v.by):null,
+      items:Array.isArray(v.items)?v.items.filter(i=>i&&i.name).map(i=>({name:String(i.name), qty:Math.max(1,+i.qty||1), cat:CAT[i.cat]?i.cat:'other', note:String(i.note||''), by:i.by?String(i.by):null})):[]}; })
+      .sort((a,b)=>b.at-a.at);
+    if (!editing && mode==='history') render();
+  }, ()=>{});
 
   db.doc('meta/recent').onSnapshot(snap=>{
     const v = snap.exists ? snap.data() : null;
