@@ -123,6 +123,20 @@
   .stat b{display:block;font-size:22px}
   .stat span{font-size:12px;color:var(--muted);font-weight:700}
   @media (max-width:420px){ h1{font-size:19px} .mode button{padding:7px 10px;font-size:13px} }
+  .switcher{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none}
+  .switcher::-webkit-scrollbar{display:none}
+  .fam .hint{color:var(--muted);font-size:14px;line-height:1.4}
+  .fam h4{margin:18px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .fam .prow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .fam .prow .pn{flex:1;min-width:0}
+  .fam .prow .pn small{display:block;color:var(--muted);font-size:12px}
+  .fam .prow button{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:800;font-size:13px;border-radius:10px;padding:6px 10px;cursor:pointer}
+  .fam .prow button.go{background:var(--green);border-color:var(--green);color:#fff}
+  .fam .addrow2{display:flex;gap:8px;margin-top:6px}
+  .fam .addrow2 input{flex:1;min-width:0}
+  .fam .addrow2 button{border:0;background:var(--green);color:#fff;font:inherit;font-weight:800;border-radius:12px;padding:0 16px;cursor:pointer}
+  .fam .msg{font-size:14px;margin-top:8px;min-height:1em}
+  .fam .none{color:var(--muted);font-size:14px;padding:6px 0}
   .toolbar .who-am-i{margin-left:auto;font-size:13px;color:var(--muted)}
 </style>
 </head>
@@ -130,7 +144,7 @@
 <header>
   <div class="top">
     <div>
-      <h1>🛒 Our Shopping List</h1>
+      <h1 id="title">🛒 My Shopping List</h1>
       <div class="sub" id="summary">Loading…</div>
     </div>
     <div class="mode">
@@ -204,7 +218,7 @@ const firebaseConfig = {
 };
 // ==============================================================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -253,6 +267,7 @@ try{ mode = localStorage.getItem('shopMode')||'plan'; }catch(e){}
 // ---- writes: one at a time per doc ----
 const queues = {};
 function write(path, fn){
+  path = (owner||'')+':'+path;
   const prev = queues[path]||Promise.resolve();
   const p = prev.then(fn).catch(err=>{ handleWriteError(err); });
   queues[path]=p; return p;
@@ -562,8 +577,6 @@ function mkDb(fs, base){
   };
 }
 function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
-function newCode(){ const a=new Uint8Array(12); crypto.getRandomValues(a); return 'list-'+[...a].map(b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join(''); }
-function shareLink(code){ return location.origin + location.pathname + '#' + code; }
 
 // ---- landing & registration ----
 let authMode='register';
@@ -628,19 +641,134 @@ $('authForm').addEventListener('submit', async e=>{
   $('aGo').disabled=false;
 });
 
-function addToolbar(code, user){
-  const bar = el('div','toolbar');
-  const share = el('button','chip','📤 Share list');
-  share.onclick = async ()=>{
-    const link = shareLink(code);
-    try { if (navigator.share){ await navigator.share({title:'Our Shopping List', text:'Join our family shopping list:', url:link}); return; } } catch(e){ return; }
-    try { await navigator.clipboard.writeText(link); setStatus('Link copied — send it to your wife on WhatsApp.'); }
-    catch(e){ setStatus('Send this link: ' + link); }
-  };
-  const out = el('button','chip','Sign out');
-  out.onclick = async ()=>{ try{ await signOut(window._auth); }catch(e){} location.reload(); };
-  bar.append(share, out, el('span','who-am-i','Hi, '+me));
-  $('status').before(bar);
+// ---- family: own list + lists shared with me ----
+let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={};
+function ownerName(o){ if(o===uid) return 'My list'; const p=sharedWithMe.find(x=>x.uid===o); return p ? p.name+"'s list" : 'List'; }
+function renderSwitcher(){
+  const box=$('switcher'); if(!box) return; box.innerHTML='';
+  const all=[uid, ...sharedWithMe.map(p=>p.uid)];
+  for (const o of all){
+    const b=el('button','chip'+(o===owner?' on':''), (o===uid?'🏠 ':'👤 ')+ownerName(o));
+    b.onclick=()=>{ if(o!==owner) openList(o); };
+    box.appendChild(b);
+  }
+  const fam=el('button','chip','👥 Family'); fam.onclick=openFamily; box.appendChild(fam);
+  $('title').textContent = '🛒 ' + (owner===uid ? 'My Shopping List' : ownerName(owner).replace("'s list","'s Shopping List"));
+}
+function addToolbar(){
+  const sw=el('div','switcher'); sw.id='switcher';
+  const bar=el('div','toolbar');
+  const out=el('button','chip','Sign out');
+  out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
+  bar.append(out, el('span','who-am-i','Hi, '+me));
+  $('status').before(sw); $('status').before(bar);
+}
+function openList(o){
+  unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
+  owner=o; store('shopOwner', o);
+  items=new Map(); trips=[]; recent=[]; setStatus('');
+  db = mkDb(fs, 'ulists/'+o+'/');
+  renderSwitcher(); render();
+  let timer = setTimeout(()=>setStatus("Can't reach the list yet — showing what's on this phone. It will update when you're back online.", true), 10000);
+  unsubs.push(db.collection('items').onSnapshot(snap=>{
+    if (o!==owner) return;
+    if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus(''); }
+    items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, doneAt:+v.doneAt||null, createdAt:+v.createdAt||0}]; }));
+    if (!snap.metadata.fromCache) autoClearOld();
+    for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
+    if (!editing) render();
+  }, err=>{ clearTimeout(timer);
+    if (err.code==='permission-denied'){ setStatus("You no longer have access to this list.", true); if(o!==uid) setTimeout(()=>openList(uid), 1500); }
+    else setStatus("Live updates stopped. Reopen the app to reconnect.", true); }));
+  unsubs.push(db.collection('trips').onSnapshot(snap=>{
+    if (o!==owner) return;
+    trips = snap.docs.map(d=>{ const v=d.data()||{};
+      const raw = Array.isArray(v.items) ? v.items.map((i,n)=>[String(n),i]) : Object.entries(v.items||{});
+      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:CAT[i.cat]?i.cat:'other', note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
+        .sort((a,b)=>a.at-b.at);
+      const last = list.reduce((m,i)=>Math.max(m,i.at), 0) || +v.at || 0;
+      return {id:d.id, at:last, items:list}; })
+      .filter(t=>t.items.length).sort((a,b)=>b.at-a.at);
+    if (!editing && mode==='trips') render();
+  }, ()=>{}));
+  unsubs.push(db.doc('meta/recent').onSnapshot(snap=>{
+    if (o!==owner) return;
+    const v = snap.exists ? snap.data() : null;
+    recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
+    if (!editing) render();
+  }, ()=>{}));
+}
+
+// ---- family sheet ----
+let famOpen=false;
+function closeFamily(){ famOpen=false; const s=$('famSheet'); if(s) s.remove(); }
+function openFamily(){ famOpen=true; renderFamily(); }
+function renderFamily(msg, ok){
+  if(!famOpen) return;
+  let wrap=$('famSheet');
+  const keepEmail = wrap ? (wrap.querySelector('#famEmail')||{}).value||'' : '';
+  if(!wrap){ wrap=el('div','sheet'); wrap.id='famSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeFamily(); }; document.body.appendChild(wrap); }
+  wrap.innerHTML='';
+  const box=el('div','box fam'); box.style.maxHeight='85vh'; box.style.overflowY='auto';
+  box.appendChild(el('h3',null,'👥 Family'));
+  box.appendChild(el('div','hint','Add family members by the email they registered with. They can then see and edit your list, and you can see theirs once they add you.'));
+
+  box.appendChild(el('h4',null,'Add a family member'));
+  const row=el('div','addrow2');
+  const inp=document.createElement('input'); inp.id='famEmail'; inp.type='email'; inp.placeholder='their@email.com'; inp.value=keepEmail; inp.autocomplete='off';
+  inp.style.cssText='font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)';
+  const add=el('button',null,'Add'); add.type='button'; add.onclick=()=>addMember(inp.value);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') addMember(inp.value); });
+  row.append(inp,add); box.appendChild(row);
+  const m=el('div','msg', msg||''); m.style.color= ok ? 'var(--green)' : 'var(--red)'; box.appendChild(m);
+
+  box.appendChild(el('h4',null,'Lists shared with me'));
+  if(!sharedWithMe.length) box.appendChild(el('div','none','Nobody has added you yet.'));
+  for(const p of sharedWithMe){
+    const r=el('div','prow');
+    const n=el('div','pn',p.name); n.appendChild(el('small',null,p.email||'')); r.appendChild(n);
+    if(!myFamily[p.uid]){ const b=el('button',null,'Share mine back'); b.onclick=()=>shareWith(p.uid, p.name); r.appendChild(b); }
+    const o=el('button','go','Open'); o.onclick=()=>{ closeFamily(); openList(p.uid); }; r.appendChild(o);
+    box.appendChild(r);
+  }
+
+  box.appendChild(el('h4',null,'Who can edit my list'));
+  const fam=Object.entries(myFamily);
+  if(!fam.length) box.appendChild(el('div','none','Only you, for now.'));
+  for(const [fid,fname] of fam){
+    const r=el('div','prow');
+    r.appendChild(el('div','pn',String(fname||'Family member')));
+    const b=el('button',null,'Remove'); b.onclick=()=>removeMember(fid, fname); r.appendChild(b);
+    box.appendChild(r);
+  }
+  const c=el('button','clear','Close'); c.onclick=closeFamily; c.style.marginTop='18px'; box.appendChild(c);
+  wrap.appendChild(box);
+}
+async function addMember(email){
+  email=(email||'').trim().toLowerCase();
+  if(!email || !email.includes('@')) return renderFamily('Please enter an email address.');
+  if(email===myEmail) return renderFamily("That's your own email 🙂");
+  try{
+    const snap=await getDoc(doc(fs,'emails/'+email));
+    if(!snap.exists()) return renderFamily('No account with that email yet. Ask them to register in the app first.');
+    const p=snap.data();
+    await shareWith(p.uid, p.name, true);
+    $('famEmail') && ($('famEmail').value='');
+  }catch(e){ renderFamily("Couldn't add them. Check your connection and try again."); }
+}
+async function shareWith(fid, fname, fromAdd){
+  try{
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}}, {merge:true});
+    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, at:Date.now()});
+    renderFamily((fname||'They')+' can now see and edit your list ✓', true);
+  }catch(e){ renderFamily("Couldn't share. Please try again."); }
+}
+async function removeMember(fid, fname){
+  try{
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}}, {merge:true});
+    await deleteDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid));
+    renderFamily((fname||'They')+' can no longer see your list.', true);
+  }catch(e){ renderFamily("Couldn't remove. Please try again."); }
 }
 
 // ---- boot ----
@@ -650,59 +778,35 @@ renderCatPick(); render();
     setStatus('Setup not finished: paste your Firebase config at the top of index.html.', true);
     $('summary').textContent='Not syncing'; return;
   }
-  // list code: from the link (#list-...) or saved on this phone, else create one
-  const fromLink = /^list-[a-z0-9]{12,}$/.test((location.hash||'').slice(1));
-  let code = fromLink ? location.hash.slice(1) : (store('shopList') || newCode());
-  store('shopList', code);
-  if (location.hash.slice(1)!==code) window.history.replaceState(null,'','#'+code);
-
+  if (location.hash) window.history.replaceState(null,'',location.pathname);
   const app = initializeApp(firebaseConfig);
-  const fs = initializeFirestore(app, { localCache: persistentLocalCache() });
+  fs = initializeFirestore(app, { localCache: persistentLocalCache() });
   const auth = getAuth(app); window._auth = auth;
   let started = false;
 
-  onAuthStateChanged(auth, user=>{
+  onAuthStateChanged(auth, async user=>{
     if (user && user.isAnonymous){ signOut(auth); return; }
-    if (!user){ if(!started) showLanding(fromLink); return; }
+    if (!user){ if(!started) showLanding(false); return; }
     if (started) return; started = true;
     $('auth').classList.add('hidden');
-    me = window._pendingName || user.displayName || (user.email||'').split('@')[0] || 'Me';
+    uid = user.uid; myEmail = (user.email||'').toLowerCase();
+    me = window._pendingName || user.displayName || myEmail.split('@')[0] || 'Me';
     names[me] = me;
-    addToolbar(code, user);
-    startList(fs, code, user);
+    // make sure my profile + email lookup exist
+    try{
+      await setDoc(doc(fs,'users/'+uid), {name:me, email:myEmail}, {merge:true});
+      if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
+    }catch(e){}
+    addToolbar();
+    fsSnap(doc(fs,'users/'+uid), s=>{ myFamily=(s.exists() && s.data().family)||{}; if(famOpen) renderFamily(); }, ()=>{});
+    fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
+      sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||'Family member'), email:String(d.data().email||'')}));
+      renderSwitcher(); if(famOpen) renderFamily();
+    }, ()=>{});
+    const last = store('shopOwner');
+    openList(last && last!==uid ? last : uid);
   });
 })();
-
-function startList(fs, code, user){
-  db = mkDb(fs, 'lists/' + code + '/');
-  // record who has joined this list
-  write('members/'+user.uid, ()=>db.doc('members/'+user.uid).set({name:me, email:user.email||'', joinedAt:Date.now()}));
-  let timer = setTimeout(()=>setStatus("Can't reach the list yet — showing what's on this phone. It will update when you're back online.", true), 10000);
-  db.collection('items').onSnapshot(snap=>{
-    if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus(''); }
-    items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, doneAt:+v.doneAt||null, createdAt:+v.createdAt||0}]; }));
-    if (!snap.metadata.fromCache) autoClearOld();
-    for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
-    if (!editing) render();
-  }, err=>{ clearTimeout(timer); setStatus(err.code==='permission-denied' ? "Firebase refused access — please sign out and sign in again." : "Live updates stopped. Reopen the app to reconnect.", true); });
-
-  db.collection('trips').onSnapshot(snap=>{
-    trips = snap.docs.map(d=>{ const v=d.data()||{};
-      const raw = Array.isArray(v.items) ? v.items.map((i,n)=>[String(n),i]) : Object.entries(v.items||{});
-      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:CAT[i.cat]?i.cat:'other', note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
-        .sort((a,b)=>a.at-b.at);
-      const last = list.reduce((m,i)=>Math.max(m,i.at), 0) || +v.at || 0;
-      return {id:d.id, at:last, items:list}; })
-      .filter(t=>t.items.length).sort((a,b)=>b.at-a.at);
-    if (!editing && mode==='trips') render();
-  }, ()=>{});
-
-  db.doc('meta/recent').onSnapshot(snap=>{
-    const v = snap.exists ? snap.data() : null;
-    recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
-    if (!editing) render();
-  }, ()=>{});
-}
 </script>
 </body>
 </html>
