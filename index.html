@@ -5,20 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Our Shopping List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=8">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <header>
   <div class="top">
     <div>
       <h1 id="title">🛒 My Shopping List</h1>
-      <div class="sub" id="summary">Loading…</div>
+      <div class="sub" id="summary" data-i18n="loading">Loading…</div>
     </div>
     <div class="mode">
-      <button id="mPlan" class="on">List</button>
-      <button id="mShop">Shop</button>
-      <button id="mHist">History</button>
+      <button id="mPlan" class="on" data-i18n="tabList">List</button>
+      <button id="mShop" data-i18n="tabShop">Shop</button>
+      <button id="mHist" data-i18n="tabHistory">History</button>
     </div>
   </div>
   <div class="progress"><i id="bar"></i></div>
@@ -28,45 +28,46 @@
 
 <div class="addbar" id="addbar">
   <form class="addrow" id="addForm" autocomplete="off">
-    <input id="addInput" placeholder="Add an item… e.g. 2 milk" enterkeyhint="done">
-    <button type="submit">Add</button>
+    <input id="addInput" placeholder="Add an item… e.g. 2 milk" data-i18n-ph="addPlaceholder" enterkeyhint="done">
+    <button type="submit" data-i18n="add">Add</button>
   </form>
   <div class="catpick" id="catPick"></div>
 </div>
 
 <div class="sheet hidden" id="sheet">
   <div class="box">
-    <h3>Edit item</h3>
-    <label>Name</label><input id="eName">
-    <label>Note (brand, size…)</label><input id="eNote" placeholder="optional">
-    <label>Section</label><div class="chips" id="eCats" style="padding-left:0"></div>
+    <h3 data-i18n="editTitle">Edit item</h3>
+    <label data-i18n="name">Name</label><input id="eName">
+    <label data-i18n="note">Note (brand, size…)</label><input id="eNote" placeholder="optional" data-i18n-ph="optional">
+    <label data-i18n="section">Section</label><div class="chips" id="eCats" style="padding-left:0"></div>
     <div class="row">
-      <button class="danger" id="eDel">Delete</button>
-      <button id="eCancel">Cancel</button>
-      <button class="primary" id="eSave">Save</button>
+      <button class="danger" id="eDel" data-i18n="delete">Delete</button>
+      <button id="eCancel" data-i18n="cancel">Cancel</button>
+      <button class="primary" id="eSave" data-i18n="save">Save</button>
     </div>
   </div>
 </div>
 
 <div id="auth" class="hidden">
   <div class="hero">
+    <button type="button" class="lang-btn" id="landLang" data-i18n="langSwitch">عربي</button>
     <div class="logo">🛒</div>
-    <h2>Welcome to Ibrahim's Family</h2>
-    <p>This is our family's shopping list. Whoever is at home adds what the house needs, and whoever goes to the supermarket ticks it off — everyone in the family sees every change on their phone right away.</p>
-    <div class="invite hidden" id="inviteNote">You've been invited to a family list 💚</div>
+    <h2 data-i18n="heroTitle">Welcome to Ibrahim's Family</h2>
+    <p data-i18n="heroText">This is our family's shopping list. Whoever is at home adds what the house needs, and whoever goes to the supermarket ticks it off — everyone in the family sees every change on their phone right away.</p>
+    <div class="invite hidden" id="inviteNote" data-i18n="invited">You've been invited to a family list 💚</div>
   </div>
   <div class="features">
-    <div class="feature"><span>👨‍👩‍👧</span>Shared with family</div>
-    <div class="feature"><span>🥬</span>Sorted by aisle</div>
-    <div class="feature"><span>✅</span>Tick while shopping</div>
+    <div class="feature"><span>👨‍👩‍👧</span><em data-i18n="feat1">Shared with family</em></div>
+    <div class="feature"><span>🥬</span><em data-i18n="feat2">Sorted by aisle</em></div>
+    <div class="feature"><span>✅</span><em data-i18n="feat3">Tick while shopping</em></div>
   </div>
   <div class="authcard">
     <form class="box" id="authForm" novalidate>
       <h3 id="aTitle">Create your account</h3>
       <p class="hint" id="aHint">It takes 30 seconds.</p>
-      <div id="nameWrap"><label for="aName">Your name</label><input id="aName" autocomplete="name" placeholder="e.g. Ibrahim"></div>
-      <label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
-      <label for="aPass">Password</label><input id="aPass" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+      <div id="nameWrap"><label for="aName" data-i18n="yourName">Your name</label><input id="aName" autocomplete="name" placeholder="e.g. Ibrahim" data-i18n-ph="namePh"></div>
+      <label for="aEmail" data-i18n="email">Email</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+      <label for="aPass" data-i18n="password">Password</label><input id="aPass" type="password" autocomplete="new-password" placeholder="At least 6 characters" data-i18n-ph="passPh">
       <button class="go" id="aGo" type="submit">Register</button>
       <div class="err" id="aErr" role="alert"></div>
       <div class="switch" id="aSwitch"></div>
@@ -74,6 +75,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>
