@@ -73,7 +73,13 @@ function setStatus(msg, warn){ const s=$('status'); s.textContent=msg||''; s.cla
 // local fallback (no sync) so the page still works
 function localOnly(){ return !db; }
 
+// ---- permissions: can this person change the list they're looking at? ----
+function myRoleOn(o){ if(!o || o===uid) return 'owner'; const p=sharedWithMe.find(x=>x.uid===o); return (p && p.role==='view') ? 'view' : 'edit'; }
+function canEdit(){ return myRoleOn(owner)!=='view'; }
+function viewOnly(){ setStatus("You have view-only access to this list.", true); }
+
 async function addItem(raw){
+  if(!canEdit()) return viewOnly();
   let text = raw.trim(); if(!text) return;
   let qty = 1;
   const m = text.match(/^(\d+)\s*[x×]?\s+(.+)$/i) || text.match(/^(.+?)\s+[x×]\s*(\d+)$/i);
@@ -89,6 +95,7 @@ async function addItem(raw){
   write('items/'+ref.id, ()=>ref.set(data));
 }
 function toggle(id){
+  if(!canEdit()) return viewOnly();
   const it = items.get(id); if(!it) return;
   const done = !it.done;
   if (navigator.vibrate) try{navigator.vibrate(12)}catch(e){}
@@ -114,6 +121,7 @@ function logHistory(it, done, t){
 }
 // ticked items from an earlier day are already in History: tidy them off the list
 function autoClearOld(){
+  if(!canEdit()) return;
   const today = dayKey(Date.now());
   const old = [...items.values()].filter(i=>i.done && i.doneAt && dayKey(i.doneAt)!==today);
   if (!old.length) return;
@@ -121,18 +129,21 @@ function autoClearOld(){
   for (const it of old){ items.delete(it.id); write('items/'+it.id, ()=>db.doc('items/'+it.id).delete()); }
 }
 function changeQty(id, q){
+  if(!canEdit()) return viewOnly();
   const it = items.get(id); if(!it) return;
   if (q<1) return removeItem(id);
   items.set(id,{...it,qty:q}); render();
   if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).update({qty:q}));
 }
 function removeItem(id){
+  if(!canEdit()) return viewOnly();
   const it = items.get(id); if(!it) return;
   remember([it]);
   items.delete(id); render();
   if (!localOnly()) write('items/'+id, ()=>db.doc('items/'+id).delete());
 }
 function remember(list){
+  if(!canEdit()) return;
   let changed=false;
   for (const it of list){
     const k = it.name.toLowerCase();
@@ -143,6 +154,7 @@ function remember(list){
   if (changed && !localOnly()){ const r=recent.slice(); write('meta/recent', ()=>db.doc('meta/recent').set({items:r})); }
 }
 function clearDone(){
+  if(!canEdit()) return viewOnly();
   const done = [...items.values()].filter(i=>i.done);
   if(!done.length) return;
   remember(done);
@@ -152,6 +164,7 @@ function clearDone(){
 
 // ---- edit sheet ----
 function openEdit(id){
+  if(!canEdit()) return;
   const it = items.get(id); if(!it) return;
   editing=id; editCat=it.cat;
   $('eName').value=it.name; $('eNote').value=it.note||'';
@@ -191,6 +204,7 @@ const CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 function itemRow(it){
   const row = el('div','item'+(it.done?' done':''));
   const chk = el('button','check'); chk.innerHTML=CHECK_SVG; chk.setAttribute('aria-label', (it.done?'Uncheck ':'Check ')+it.name);
+  const ro = !canEdit(); if (ro){ chk.disabled=true; row.classList.add('ro'); }
   chk.onclick=()=>toggle(it.id);
   const body = el('div','body');
   const nm = el('div','name'); nm.textContent = it.name;
@@ -201,9 +215,9 @@ function itemRow(it){
   if (mode==='plan' && it.addedBy && names[it.addedBy]) { const w=el('span','who',initials(it.addedBy)); w.title='Added by '+names[it.addedBy]; meta.appendChild(w); }
   if (it.done && it.doneBy && names[it.doneBy]) meta.appendChild(el('span',null,'✓ '+(it.doneBy===me?'you':names[it.doneBy].split(' ')[0])));
   if (meta.childNodes.length) body.appendChild(meta);
-  body.onclick = ()=> mode==='shop' ? toggle(it.id) : openEdit(it.id);
+  if (!ro) body.onclick = ()=> mode==='shop' ? toggle(it.id) : openEdit(it.id);
   row.append(chk, body);
-  if (mode==='plan' && !it.done){
+  if (mode==='plan' && !it.done && !ro){
     const q = el('div','qty');
     const minus = el('button',null,'−'); minus.onclick=()=>changeQty(it.id,it.qty-1);
     const plus = el('button',null,'+'); plus.onclick=()=>changeQty(it.id,it.qty+1);
@@ -221,13 +235,15 @@ function render(){
   $('mPlan').classList.toggle('on', mode==='plan');
   $('mShop').classList.toggle('on', mode==='shop');
   $('mHist').classList.toggle('on', mode==='trips');
-  $('addbar').classList.toggle('hidden', mode!=='plan');
-  document.body.style.paddingBottom = mode!=='plan' ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
+  const ro = !canEdit();
+  $('addbar').classList.toggle('hidden', mode!=='plan' || ro);
+  document.body.style.paddingBottom = (mode!=='plan' || ro) ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
 
   const main = $('main'); main.innerHTML=''; main.className = mode==='shop'?'shop':'';
+  if (ro){ const v=el('div','viewonly'); v.appendChild(el('b',null,'👁 View only')); v.appendChild(document.createTextNode(' You can see '+ownerName(owner)+' and its History, but not change it.')); main.appendChild(v); }
   if (mode==='trips'){ renderHistory(main); return; }
 
-  if (mode==='plan'){
+  if (mode==='plan' && !ro){
     const inList = new Set(todo.map(i=>i.name.toLowerCase()));
     const quick = recent.filter(r=>!inList.has(r.name.toLowerCase())).slice(0,15);
     if (quick.length){
@@ -244,7 +260,7 @@ function render(){
 
   if (!all.length){
     const e = el('div','empty'); e.innerHTML='<b>🧺</b>';
-    e.appendChild(document.createTextNode(mode==='shop' ? 'The list is empty — switch to List to add items.' : 'Add your first item below. Anything you add shows up on both phones.'));
+    e.appendChild(document.createTextNode(ro ? 'This list is empty right now.' : mode==='shop' ? 'The list is empty — switch to List to add items.' : 'Add your first item below. Anything you add shows up on both phones.'));
     main.appendChild(e); return;
   }
 
@@ -269,7 +285,7 @@ function render(){
     done.sort((a,b)=>a.name.localeCompare(b.name)).forEach(i=>g.appendChild(itemRow(i)));
     main.appendChild(g);
     const clr = el('button','clear','Clear checked items (they stay in History)'); clr.onclick=clearDone;
-    main.appendChild(clr);
+    if (!ro) main.appendChild(clr);
   }
 }
 
@@ -281,6 +297,7 @@ function fmtDate(t){
   return {day, time:d.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'})};
 }
 function readd(list){
+  if(!canEdit()) return viewOnly();
   const keep=pickedCat; let n=0;
   for (const it of list){ pickedCat=it.cat; addItem((it.qty>1?it.qty+' ':'')+it.name); n++; }
   pickedCat=keep;
@@ -319,13 +336,12 @@ function renderHistory(main){
       const n = el('span','n', i.name + (i.qty>1?' ×'+i.qty:''));
       if (i.note){ n.appendChild(document.createElement('br')); n.appendChild(el('small',null,i.note)); }
       r.appendChild(n);
-      const b = el('button',null,'+ Add'); b.onclick=()=>readd([i]);
-      r.appendChild(b);
+      if (canEdit()){ const b = el('button',null,'+ Add'); b.onclick=()=>readd([i]); r.appendChild(b); }
       rows.appendChild(r);
     }
     const again = el('button','again','Add all '+t.items.length+' items to the list');
     again.onclick=()=>{ readd(t.items); mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render(); };
-    rows.appendChild(again);
+    if (canEdit()) rows.appendChild(again);
     card.appendChild(rows);
     main.appendChild(card);
   }
@@ -433,13 +449,13 @@ $('authForm').addEventListener('submit', async e=>{
 });
 
 // ---- family: own list + lists shared with me ----
-let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={};
+let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
 function ownerName(o){ if(o===uid) return 'My list'; const p=sharedWithMe.find(x=>x.uid===o); return p ? p.name+"'s list" : 'List'; }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
   const all=[uid, ...sharedWithMe.map(p=>p.uid)];
   for (const o of all){
-    const b=el('button','chip'+(o===owner?' on':''), (o===uid?'🏠 ':'👤 ')+ownerName(o));
+    const b=el('button','chip'+(o===owner?' on':''), (o===uid?'🏠 ':'👤 ')+ownerName(o)+(myRoleOn(o)==='view'?' · view':''));
     b.onclick=()=>{ if(o!==owner) openList(o); };
     box.appendChild(b);
   }
@@ -491,13 +507,14 @@ function openList(o){
 }
 
 // ---- family page ----
-let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null;
+let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null, famInviteRole='edit';
 const ICON = {
   close:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   mail:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
   ok:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 10"/></svg>',
   err:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>',
   check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  eye:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   people:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.3c2.4.1 4.3 1.8 4.8 4.7"/></svg>'
 };
 function iconEl(name){ const s=document.createElement('span'); s.style.display='inline-flex'; s.innerHTML=ICON[name]; return s; }
@@ -505,13 +522,13 @@ function avatarColor(seed){ let h=0; for(const ch of String(seed)) h=(h*31+ch.ch
 function initialsOf(name){ return String(name||'?').trim().split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase() || '?'; }
 function famPeople(){
   const map=new Map();
-  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||'Family member'), email:String(familyEmails[fid]||''), canEditMine:true, sharedWithMe:false});
+  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||'Family member'), email:String(familyEmails[fid]||''), canEditMine:true, role:familyRoles[fid]==='view'?'view':'edit', sharedWithMe:false});
   for (const p of sharedWithMe){ const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=true; map.set(p.uid,x); }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name));
 }
 function closeFamily(){ famOpen=false; famMsg=''; famConfirm=null; const s=$('famSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', famKeys); }
 function famKeys(e){ if(e.key==='Escape') closeFamily(); }
-function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
+function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; famInviteRole='edit'; document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
 function renderFamily(msg, ok){
   if(!famOpen) return;
   if(msg!==undefined){ famMsg=msg; famOk=!!ok; }
@@ -534,7 +551,16 @@ function renderFamily(msg, ok){
   // invite card
   const card=el('section','fam-card');
   card.appendChild(el('h4',null,'Invite a family member'));
-  card.appendChild(el('p','lead','Enter the email they registered with. They\'ll be able to see and edit your list.'));
+  card.appendChild(el('p','lead','Enter the email they registered with, then choose what they can do with your list.'));
+  const roles=el('div','role-pick'); roles.setAttribute('role','radiogroup'); roles.setAttribute('aria-label','Access');
+  for (const [val,title,desc] of [['edit','Can edit','Add, tick and remove items'],['view','View only','See the list and History']]){
+    const opt=document.createElement('button'); opt.type='button'; opt.className='role-opt'+(famInviteRole===val?' on':''); opt.dataset.role=val;
+    opt.setAttribute('role','radio'); opt.setAttribute('aria-checked', famInviteRole===val?'true':'false');
+    const dot=el('span','dot'); const txt=el('span','txt'); txt.appendChild(el('b',null,title)); txt.appendChild(el('small',null,desc));
+    opt.append(dot,txt); opt.onclick=()=>{ famInviteRole=val; renderFamily(); };
+    roles.appendChild(opt);
+  }
+  card.appendChild(roles);
   const form=document.createElement('form'); form.className='fam-invite'; form.noValidate=true;
   const field=el('label','fam-field'); field.appendChild(iconEl('mail'));
   const inp=document.createElement('input'); inp.id='famEmail'; inp.type='email'; inp.placeholder='name@example.com'; inp.value=keepEmail; inp.autocomplete='off'; inp.inputMode='email'; inp.setAttribute('aria-label','Family member\'s email');
@@ -566,7 +592,7 @@ function renderFamily(msg, ok){
       top.append(av,who); m.appendChild(top);
 
       const bd=el('div','badges');
-      const b1=el('span','badge2'+(p.canEditMine?' on':'')); if(p.canEditMine) b1.appendChild(iconEl('check')); b1.append(p.canEditMine?'Can edit your list':'No access to your list');
+      const b1=el('span','badge2'+(p.canEditMine?' on':'')+(p.canEditMine&&p.role==='view'?' view':'')); if(p.canEditMine) b1.appendChild(iconEl(p.role==='view'?'eye':'check')); b1.append(!p.canEditMine?'No access to your list':p.role==='view'?'Can view your list':'Can edit your list');
       const b2=el('span','badge2'+(p.sharedWithMe?' on':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.sharedWithMe?'Shared their list with you':'Hasn\'t shared their list');
       bd.append(b1,b2); m.appendChild(bd);
 
@@ -580,7 +606,8 @@ function renderFamily(msg, ok){
       } else {
         const acts=el('div','acts');
         if(p.sharedWithMe){ const o=el('button','btn btn-soft','Open their list'); o.type='button'; o.onclick=()=>{ closeFamily(); openList(p.uid); }; acts.appendChild(o); }
-        if(!p.canEditMine){ const s=el('button','btn','Share my list'); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email); acts.appendChild(s); }
+        if(!p.canEditMine){ const s=el('button','btn','Share my list'); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email,famInviteRole); acts.appendChild(s); }
+        if(p.canEditMine){ const to=p.role==='view'?'edit':'view'; const ch=el('button','btn', to==='view'?'Make view only':'Allow editing'); ch.type='button'; ch.onclick=()=>setRole(p.uid,p.name,to); acts.appendChild(ch); }
         acts.appendChild(el('span','sp'));
         if(p.canEditMine){ const rm=el('button','btn btn-danger','Remove'); rm.type='button'; rm.onclick=()=>{ famConfirm=p.uid; renderFamily(); }; acts.appendChild(rm); }
         m.appendChild(acts);
@@ -607,20 +634,28 @@ async function addMember(email){
     const p=snap.data();
     if(myFamily[p.uid]){ famBusy=false; return renderFamily((p.name||'They')+' can already edit your list.', true); }
     famBusy=false;
-    await shareWith(p.uid, p.name, email);
+    await shareWith(p.uid, p.name, email, famInviteRole);
     const i=$('famEmail'); if(i) i.value='';
   }catch(e){ famBusy=false; renderFamily("Couldn't add them. Check your connection and try again."); }
 }
-async function shareWith(fid, fname, femail){
+async function shareWith(fid, fname, femail, role){
+  role = role==='view' ? 'view' : 'edit';
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}}, {merge:true});
-    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, at:Date.now()});
-    renderFamily((fname||'They')+' can now see and edit your list.', true);
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}, familyRoles:{[fid]:role}}, {merge:true});
+    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, at:Date.now(), role});
+    renderFamily((fname||'They')+(role==='view'?' can now view your list.':' can now see and edit your list.'), true);
   }catch(e){ renderFamily("Couldn't share your list. Please try again."); }
+}
+async function setRole(fid, fname, role){
+  try{
+    await setDoc(doc(fs,'users/'+uid), {familyRoles:{[fid]:role}}, {merge:true});
+    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {role}, {merge:true});
+    renderFamily((fname||'They')+(role==='view'?' can now only view your list.':' can now edit your list.'), true);
+  }catch(e){ renderFamily("Couldn't change their access. Please try again."); }
 }
 async function removeMember(fid, fname){
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}}, {merge:true});
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}, familyRoles:{[fid]:deleteField()}}, {merge:true});
     await deleteDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid));
     renderFamily((fname||'They')+' no longer has access to your list.', true);
   }catch(e){ renderFamily("Couldn't remove them. Please try again."); }
@@ -653,10 +688,10 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; if(famOpen) renderFamily(); }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; familyRoles=d.familyRoles||{}; if(famOpen) renderFamily(); }, ()=>{});
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
-      sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||'Family member'), email:String(d.data().email||'')}));
-      renderSwitcher(); if(famOpen) renderFamily();
+      sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||'Family member'), email:String(d.data().email||''), role:d.data().role==='view'?'view':'edit'}));
+      renderSwitcher(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
     }, ()=>{});
     const last = store('shopOwner');
     openList(last && last!==uid ? last : uid);
