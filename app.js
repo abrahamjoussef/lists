@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=11";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=12";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
