@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=15";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=16";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -408,6 +408,7 @@ function setAuthMode(m){
   $('aTitle').textContent = reg ? t('createAccount') : t('welcomeBack');
   $('aHint').textContent = reg ? t('takes30') : t('signInHint');
   $('nameWrap').classList.toggle('hidden', !reg);
+  $('pass2Wrap').classList.toggle('hidden', !reg);
   $('aPass').autocomplete = reg ? 'new-password' : 'current-password';
   $('aGo').textContent = reg ? t('register') : t('signIn');
   $('aErr').textContent=''; $('aErr').className='err';
@@ -451,8 +452,10 @@ $('authForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const auth=window._auth, name=$('aName').value.trim(), email=$('aEmail').value.trim(), pass=$('aPass').value;
   $('aErr').className='err'; $('aErr').textContent='';
-  if(authMode==='register' && !name){ $('aErr').textContent=t('enterName'); return; }
+  if(authMode==='register' && !name){ $('aErr').textContent=t('enterName'); $('aName').focus(); return; }
+  if(authMode==='register' && (name.match(/\p{L}/gu)||[]).length<3){ $('aErr').textContent=t('nameShort'); $('aName').focus(); return; }
   if(!email || !pass){ $('aErr').textContent=t('enterEmailPass'); return; }
+  if(authMode==='register' && pass!==$('aPass2').value){ $('aErr').textContent=t($('aPass2').value?'passMismatch':'confirmPassNeeded'); $('aPass2').focus(); return; }
   $('aGo').disabled=true;
   try{
     if(authMode==='register'){
