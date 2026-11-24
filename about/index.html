@@ -64,16 +64,16 @@ h1 em{font-style:normal;color:var(--green)}
 .play i::after{content:"";margin-left:6px;border-style:solid;border-width:14px 0 14px 22px;border-color:transparent transparent transparent #fff}
 .play.hidden{display:none}
 .caption{font-size:14px;color:var(--muted);margin-top:12px;text-align:center}
-.vctl{position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:3}
-[dir=rtl] .vctl{right:auto;left:12px}
-.vctl button{border:0;border-radius:999px;padding:8px 12px;min-height:36px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;background:rgba(20,35,27,.78);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.vctl{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:3}
+[dir=rtl] .vctl{right:auto;left:10px}
+.vctl button{border:0;border-radius:999px;padding:4px 9px;min-height:26px;font:inherit;font-weight:700;font-size:11.5px;line-height:1.2;cursor:pointer;background:rgba(20,35,27,.78);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .vctl button[aria-pressed=false]{background:rgba(20,35,27,.45);color:#d6e3da}
 .vctl button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 .subs{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:52px;max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:600;font-size:clamp(11px,1.15vw,14px);line-height:1.35;padding:5px 10px;border-radius:8px;text-align:center;pointer-events:none;z-index:2}
 #heroPlayer .subs{bottom:12px}
 .subs:empty{display:none}
 html[lang=ar] .subs{font-family:Tajawal,sans-serif;font-size:clamp(12px,1.3vw,15px)}
-@media (max-width:600px){ .subs,html[lang=ar] .subs{font-size:10.5px;bottom:38px;padding:3px 8px;max-width:94%;border-radius:6px} #heroPlayer .subs{bottom:8px} .vctl{top:8px;right:8px;gap:6px} [dir=rtl] .vctl{left:8px} .vctl button{font-size:11.5px;padding:5px 9px;min-height:30px} }
+@media (max-width:600px){ .subs,html[lang=ar] .subs{font-size:10.5px;bottom:38px;padding:3px 8px;max-width:94%;border-radius:6px} #heroPlayer .subs{bottom:8px} .vctl{top:6px;right:6px;gap:4px} [dir=rtl] .vctl{left:6px} .vctl button{font-size:10px;padding:3px 7px;min-height:22px} }
 .vnote{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:1em}
 /* sections */
 section{padding:72px 0}
@@ -161,7 +161,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
   </div>
   <div>
     <div class="player" id="heroPlayer">
-      <video id="heroVid" src="demo.mp4" poster="poster.jpg" muted playsinline loop preload="metadata"></video>
+      <video id="heroVid" src="demo.mp4" poster="poster.jpg" playsinline loop preload="metadata"></video>
       <button class="play" type="button" aria-label="Play demo"><i></i></button>
     </div>
   </div>
@@ -282,7 +282,7 @@ function apply(l){
 }
 document.getElementById('lang').onclick = ()=>apply(lang==='ar'?'en':'ar');
 if (lang==='ar') apply('ar');
-// hero video: plays muted on tap
+// hero video: plays with sound on tap
 const hv=document.getElementById('heroVid'), hp=document.querySelector('#heroPlayer .play');
 hp.onclick=()=>{ if(window.speechSynthesis&&voiceOn){ try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} } hv.play(); hp.classList.add('hidden'); hv.controls=true; };
 // ---- narration: spoken by the visitor's own device, in the page language ----
@@ -314,13 +314,13 @@ function cueAt(t){ let i=-1; for(let k=0;k<CUES.length;k++){ if(t>=CUES[k][0]-0.
 function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||66); }
 const players=[];
 function speak(p,i){
-  if(!TTS||!voiceOn||i<0) return;
+  if(!TTS||!voiceOn||i<0||p.v.muted||p.v.volume===0) return;
   const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang);
   if(!v){ return; }
   TTS.cancel();
   const u=new SpeechSynthesisUtterance(text); try{ u.voice=v; }catch(e){} u.lang=v.lang;
   const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.3, est=text.length/(lang==='ar'?13:15);
-  u.rate=Math.max(0.95,Math.min(1.35, est/Math.max(1.5,span)*1.05)); u.pitch=1;
+  u.volume=p.v.volume; u.rate=Math.max(0.95,Math.min(1.35, est/Math.max(1.5,span)*1.05)); u.pitch=1;
   TTS.speak(u);
 }
 function showSub(p,i){ p.sub.textContent = (subsOn||(!pickVoice(lang)&&voiceOn)) && i>=0 && !p.v.paused ? CUES[i][lang==='ar'?2:1] : ''; }
@@ -342,6 +342,8 @@ function setupPlayer(box){
   bs.onclick=()=>{ subsOn=!subsOn; try{localStorage.setItem('siteSubs',subsOn?'on':'off')}catch(e){} players.forEach(q=>{q.sync(); showSub(q,q.cur);}); };
   ctl.append(bv,bs); box.append(p.sub,ctl);
   v.addEventListener('play',()=>{ players.forEach(q=>{ if(q!==p && !q.v.paused) q.v.pause(); }); if(voiceOn) v.loop=false; p.cur=-1; tick(); });
+  v.muted=false;
+  v.addEventListener('volumechange',()=>{ if((v.muted||v.volume===0)&&TTS) TTS.cancel(); });
   v.addEventListener('seeking',()=>{ p.cur=-1; if(TTS) TTS.cancel(); });
   v.addEventListener('pause',()=>{ if(TTS) TTS.cancel(); showSub(p,-1); });
   v.addEventListener('ended',()=>{ if(TTS) TTS.cancel(); p.sub.textContent=''; });
