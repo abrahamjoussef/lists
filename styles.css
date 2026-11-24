@@ -79,9 +79,14 @@ main{padding:4px 12px}
 .hero h2{font-size:30px;margin:0 0 8px;font-weight:800;letter-spacing:-.5px}
 .hero p{margin:0 auto;max-width:340px;opacity:.92;font-size:16px;line-height:1.45}
 .invite{display:inline-block;margin-top:16px;background:rgba(255,255,255,.18);border-radius:99px;padding:6px 14px;font-size:14px;font-weight:700}
-.features{display:flex;gap:10px;max-width:440px;margin:-40px auto 0;padding:0 16px}
-.feature{flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 8px;text-align:center;font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.06)}
-.feature span{display:block;font-size:24px;margin-bottom:4px}
+.features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:440px;margin:-40px auto 0;padding:0 16px}
+.feature{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 12px;text-align:start;box-shadow:0 6px 18px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:3px}
+.feature span{display:block;font-size:24px;line-height:1;margin-bottom:6px}
+.feature b{font-size:14.5px;font-weight:800;line-height:1.25;color:var(--ink)}
+.feature small{font-size:12.5px;line-height:1.4;color:var(--muted)}
+.hero-cta{display:inline-block;margin-top:20px;background:#fff;color:#14603f;font-weight:800;font-size:16px;padding:12px 22px;border-radius:999px;text-decoration:none;box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.hero-cta:active{transform:scale(.98)}
+@media (min-width:760px){ .features{grid-template-columns:repeat(4,minmax(0,1fr));max-width:900px} }
 .authcard{max-width:440px;margin:20px auto 32px;padding:0 16px}
 .authcard .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
 .authcard h3{margin:0 0 4px;font-size:20px}
