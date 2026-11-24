@@ -249,3 +249,10 @@ html[lang=ar] h1{font-size:22px}
 .features{position:relative;z-index:1}
 [dir=rtl] input[type=email]{direction:ltr;text-align:right}
 [dir=rtl] input[type=email]::placeholder{text-align:right}
+
+/* descriptions */
+.item .desc{font-size:13.5px;line-height:1.35;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.item.done .desc{text-decoration:none;opacity:.8}
+.list-desc{padding:10px 16px 12px;border-top:1px solid var(--line);font-size:14px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
+.list-desc::before{content:"📝 "}
+.sheet textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical;min-height:64px}
