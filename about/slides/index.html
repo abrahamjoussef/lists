@@ -30,13 +30,13 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 
 .count{font-weight:800;font-size:16px;min-width:76px;text-align:center;color:#C9D8CE;font-variant-numeric:tabular-nums}
 .hint{text-align:center;font-size:13px;color:#8FA597;padding-bottom:14px}
 @media (max-width:600px){h1{font-size:16px}.btn{padding:9px 14px;font-size:14px}.hint{display:none}}
+video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
 </style>
 </head>
 <body>
 <header>
   <a class="back" href="../">← Back to the site</a>
   <h1>Business overview &amp; user guide</h1>
-  <a class="btn btn-primary" href="family-shopping-list-slides.pdf" download>⬇ Download PDF</a>
 </header>
 <main>
   <div class="track" id="track" tabindex="0" aria-label="Slides" aria-roledescription="carousel">
@@ -66,6 +66,11 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 
   </div>
   <p class="hint">Swipe, or use the ← → keys</p>
 </main>
+<script>
+// discourage saving media: no right-click / long-press / drag on videos and slides
+document.addEventListener('contextmenu',e=>{ if(e.target.closest('video,img,.player,.slide,.thumb')) e.preventDefault(); });
+document.addEventListener('dragstart',e=>{ if(e.target.closest('video,img')) e.preventDefault(); });
+</script>
 <script>
 {
   const track=document.getElementById('track'), slides=[...track.children], N=slides.length;
