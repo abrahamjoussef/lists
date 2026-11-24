@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=18";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=19";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -496,7 +496,7 @@ const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
 const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', createdAt:mainInfo.createdAt||0});
-const fmtCreated = ts => ts ? t('createdOn',{date:new Date(ts).toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'})}) : '';
+const fmtCreated = ts => { if(!ts) return ''; const d=new Date(ts); return t('createdOn',{date:d.toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'}), time:d.toLocaleTimeString(dateLocale,{hour:'numeric', minute:'2-digit'})}); };
 const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
 // the main list can be deleted too; 'none' means the person has no lists at all
 const mainAlive = () => !mainInfo.deleted;
@@ -644,12 +644,14 @@ function deleteList(l){
   if (myRoleOn(owner)!=='owner' || !l) return;
   const o=owner, base=listBase(o,l.id), isMain=l.id==='main';
   const itemIds=[...items.keys()], tids=tripIds.slice();
+  const pending=Object.keys(queues).filter(k=>k.startsWith(base)).map(k=>queues[k]);   // let edits still on their way land first
   closeListSheet();
   if (isMain) mainInfo={...mainInfo, deleted:true}; else lists=lists.filter(x=>x.id!==l.id);
   openList(o, firstListId());
   setStatus(t('listDeleted'));
   (async()=>{
     try{
+      await Promise.all(pending);
       // the main list's record is kept (marked deleted) so it doesn't come back on the next visit
       if (isMain) await setDoc(doc(fs,'ulists/'+o+'/lists/main'), {deleted:true, deletedAt:Date.now(), main:true}, {merge:true});
       else await deleteDoc(doc(fs,'ulists/'+o+'/lists/'+l.id));
