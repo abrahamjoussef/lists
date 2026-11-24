@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=12";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=13";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -89,14 +89,20 @@ function viewOnly(){ setStatus(t('viewOnlyMsg'), true); }
 async function addItem(raw){
   if(!canEdit()) return viewOnly();
   let text = normDigits(raw).trim(); if(!text) return;
+  let desc = '';
+  const dm = text.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dm){ text = dm[1].trim(); desc = dm[2].trim().slice(0,120); }
   let qty = 1;
   const m = text.match(/^(\d+)\s*[x×]?\s+(.+)$/i) || text.match(/^(.+?)\s+[x×]?\s*(\d+)$/i);
   if (m){ if (/^\d+$/.test(m[1])){ qty=+m[1]; text=m[2]; } else { text=m[1]; qty=+m[2]; } }
   text = text.charAt(0).toUpperCase()+text.slice(1);
   const existing = [...items.values()].find(i=>!i.done && i.name.toLowerCase()===text.toLowerCase());
-  if (existing){ return changeQty(existing.id, existing.qty+qty); }
+  if (existing){
+    if (desc && !existing.note){ items.set(existing.id,{...existing,note:desc}); if(!localOnly()) write('items/'+existing.id, ()=>db.doc('items/'+existing.id).update({note:desc})); }
+    return changeQty(existing.id, existing.qty+qty);
+  }
   const cat = pickedCat || guessCat(text);
-  const data = {name:text, qty, cat, note:'', done:false, addedBy:me||null, doneBy:null, createdAt:Date.now()};
+  const data = {name:text, qty, cat, note:desc, done:false, addedBy:me||null, doneBy:null, createdAt:Date.now()};
   if (localOnly()){ const id='l'+Date.now(); items.set(id,{id,...data}); render(); return; }
   const ref = db.collection('items').doc();
   items.set(ref.id,{id:ref.id,...data}); render();
@@ -219,8 +225,8 @@ function itemRow(it){
   const nm = el('div','name'); nm.textContent = it.name;
   if (it.qty>1 && mode==='shop'){ nm.append(' '); nm.appendChild(el('span','badge','×'+it.qty)); }
   body.appendChild(nm);
+  if (it.note) body.appendChild(el('div','desc',it.note));
   const meta = el('div','meta');
-  if (it.note) meta.appendChild(el('span',null,it.note));
   if (mode==='plan' && it.addedBy && names[it.addedBy]) { const w=el('span','who',initials(it.addedBy)); w.title=t('addedBy',{name:names[it.addedBy]}); meta.appendChild(w); }
   if (it.done && it.doneBy && names[it.doneBy]) meta.appendChild(el('span',null,'✓ '+(it.doneBy===me?t('you'):names[it.doneBy].split(' ')[0])));
   if (meta.childNodes.length) body.appendChild(meta);
@@ -308,7 +314,7 @@ function fmtDate(ts){
 function readd(list){
   if(!canEdit()) return viewOnly();
   const keep=pickedCat; let n=0;
-  for (const it of list){ pickedCat=it.cat; addItem((it.qty>1?it.qty+' ':'')+it.name); n++; }
+  for (const it of list){ pickedCat=it.cat; addItem((it.qty>1?it.qty+' ':'')+it.name+(it.note?' - '+it.note:'')); n++; }
   pickedCat=keep;
   setStatus(itemsAdded(n));
 }
@@ -461,11 +467,11 @@ $('authForm').addEventListener('submit', async e=>{
 // ---- family: own list + lists shared with me ----
 let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
-let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒'};
+let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:''};
 const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
-const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒'});
+const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||''});
 const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
@@ -494,7 +500,14 @@ function updateTitle(){
   if (l) $('title').textContent = l.emoji + ' ' + (owner===uid || !op ? l.name : t('shoppingListName',{list:l.name, name:op.name}));
   else $('title').textContent = '🛒 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
 }
+function renderListDesc(){
+  const d=$('listDesc'); if(!d) return;
+  const l = listId==='main' ? mainEntry() : lists.find(x=>x.id===listId);
+  const txt = l && l.description ? l.description : '';
+  d.textContent = txt; d.classList.toggle('hidden', !txt);
+}
 function renderLists(){
+  renderListDesc();
   const box=$('listbar'); if(!box) return; box.innerHTML='';
   const ed = canEdit();
   if (!lists.length && !ed && !mainCustom()){ box.classList.add('hidden'); return; }
@@ -523,7 +536,7 @@ let listSheet=null;
 function closeListSheet(){ listSheet=null; const s=$('listSheet'); if(s) s.remove(); }
 function openListSheet(l){
   if(!canEdit()) return viewOnly();
-  listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', confirm:false, err:''};
+  listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', desc:l?(l.description||''):'', confirm:false, err:''};
   renderListSheet();
   setTimeout(()=>{ const i=$('lName'); if(i && !l) i.focus(); },150);
 }
@@ -531,7 +544,7 @@ function renderListSheet(){
   if(!listSheet) return;
   const S=listSheet;
   let wrap=$('listSheet');
-  if (wrap){ const i=$('lName'); if(i) S.name=i.value; }
+  if (wrap){ const i=$('lName'); if(i) S.name=i.value; const d=$('lDesc'); if(d) S.desc=d.value; }
   else { wrap=el('div','sheet list-sheet'); wrap.id='listSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeListSheet(); }; document.body.appendChild(wrap); }
   wrap.innerHTML='';
   const box=el('div','box'); box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true');
@@ -542,6 +555,9 @@ function renderListSheet(){
   const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
   inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveList(); } };
   box.appendChild(inp);
+  const dl=el('label',null,t('listDesc')); dl.htmlFor='lDesc'; box.appendChild(dl);
+  const ta=document.createElement('textarea'); ta.id='lDesc'; ta.maxLength=120; ta.rows=2; ta.value=S.desc||''; ta.placeholder=t('listDescPh');
+  box.appendChild(ta);
   box.appendChild(el('label',null,t('listIcon')));
   const icons=el('div','chips icon-pick');
   for (const ic of LIST_ICONS){ const b=el('button','chip'+(ic===S.emoji?' on':''),ic); b.type='button'; b.onclick=()=>{ S.emoji=ic; renderListSheet(); }; icons.appendChild(b); }
@@ -565,22 +581,23 @@ function renderListSheet(){
 function saveList(){
   const S=listSheet; if(!S) return;
   const name=($('lName').value||'').trim().slice(0,40);
+  const description=(($('lDesc')||{}).value||'').trim().slice(0,120);
   if(!name){ S.err=t('enterListName'); return renderListSheet(); }
   const o=owner;
   if (S.edit && S.edit.id==='main'){
     const stored = (name===t('mainList') || name===mainEntry().name && !mainInfo.name) ? '' : name;
-    mainInfo={name:stored, emoji:S.emoji};
-    setDoc(doc(fs,'ulists/'+o+'/lists/main'), {name:stored, emoji:S.emoji, main:true}, {merge:true}).catch(handleWriteError);
+    mainInfo={name:stored, emoji:S.emoji, description};
+    setDoc(doc(fs,'ulists/'+o+'/lists/main'), {name:stored, emoji:S.emoji, description, main:true}, {merge:true}).catch(handleWriteError);
     closeListSheet(); renderLists(); updateTitle(); return;
   }
   if (S.edit){
     const id=S.edit.id;
-    lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji}:l);
-    setDoc(doc(fs,'ulists/'+o+'/lists/'+id), {name, emoji:S.emoji}, {merge:true}).catch(handleWriteError);
+    lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji,description}:l);
+    setDoc(doc(fs,'ulists/'+o+'/lists/'+id), {name, emoji:S.emoji, description}, {merge:true}).catch(handleWriteError);
     closeListSheet(); renderLists(); updateTitle(); return;
   }
   const ref=doc(collection(fs,'ulists/'+o+'/lists'));
-  const data={name, emoji:S.emoji, createdAt:Date.now(), createdBy:me||null};
+  const data={name, emoji:S.emoji, description, createdAt:Date.now(), createdBy:me||null};
   pendingLists.add(ref.id);
   setDoc(ref, data).catch(err=>{ pendingLists.delete(ref.id); handleWriteError(err); });
   lists=[...lists,{id:ref.id,...data}];
@@ -615,12 +632,13 @@ function addToolbar(){
   bar.append(out, lg, el('span','who-am-i',t('hi',{name:me})));
   sw.setAttribute('aria-label', t('peopleNav'));
   const lb=el('div','listbar'); lb.id='listbar'; lb.setAttribute('aria-label', t('listsNav'));
-  const nav=el('nav','navcard'); nav.append(sw, lb);
+  const ld=el('div','list-desc hidden'); ld.id='listDesc';
+  const nav=el('nav','navcard'); nav.append(sw, lb, ld);
   $('status').before(nav); $('status').before(bar);
 }
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
-  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒'}; }
+  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:''}; }
   owner=o; store('shopOwner', o);
   listId = lid || store('shopList:'+o) || 'main';
   if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId)) listId='main';
@@ -632,8 +650,8 @@ function openList(o, lid){
   unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
     const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
-    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒'};
-    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}; })
+    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120)};
+    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), createdAt:+v.createdAt||0}; })
       .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
     for (const l of lists) pendingLists.delete(l.id);
     if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
