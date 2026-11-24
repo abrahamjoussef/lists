@@ -69,11 +69,19 @@ h1 em{font-style:normal;color:var(--green)}
 .vctl button{border:0;border-radius:999px;padding:2px 7px;min-height:20px;font:inherit;font-weight:700;font-size:10px;line-height:1.2;cursor:pointer;background:rgba(20,35,27,.78);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .vctl button[aria-pressed=false]{background:rgba(20,35,27,.45);color:#d6e3da}
 .vctl button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
-.subs{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:52px;max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:600;font-size:clamp(9px,.8vw,10.5px);line-height:1.3;padding:2px 7px;border-radius:6px;text-align:center;pointer-events:none;z-index:2}
-#heroPlayer .subs{bottom:12px}
+.subs{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:40px;max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:600;font-size:clamp(9px,.8vw,10.5px);line-height:1.3;padding:2px 7px;border-radius:6px;text-align:center;pointer-events:none;z-index:2}
+.vbar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:6px 10px;background:linear-gradient(transparent,rgba(20,35,27,.72));z-index:3;direction:ltr;transition:opacity .25s}
+.player.idle .vbar{opacity:0}
+.player.fresh .vbar,.player.fresh .vctl{display:none}
+.vbar button{border:0;background:none;color:#fff;font:inherit;font-size:13px;line-height:1;width:24px;height:24px;display:grid;place-items:center;cursor:pointer;border-radius:6px;padding:0}
+.vbar button:focus-visible{outline:2px solid var(--amber)}
+.vbar input[type=range]{flex:1;min-width:40px;height:4px;accent-color:var(--amber);cursor:pointer;margin:0}
+.vbar .vt{color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.9}
+.player:fullscreen{border-radius:0;border:0;aspect-ratio:auto}
+.player:fullscreen video{object-fit:contain;background:#000}
 .subs:empty{display:none}
 html[lang=ar] .subs{font-family:Tajawal,sans-serif;font-size:clamp(10px,.9vw,11.5px)}
-@media (max-width:600px){ .subs,html[lang=ar] .subs{font-size:8px;bottom:36px;padding:1px 5px;max-width:94%;border-radius:5px} #heroPlayer .subs{bottom:8px} .vctl{top:6px;right:6px;gap:4px} [dir=rtl] .vctl{left:6px} .vctl button{font-size:8.5px;padding:2px 6px;min-height:17px} }
+@media (max-width:600px){ .subs,html[lang=ar] .subs{font-size:8px;bottom:30px;padding:1px 5px;max-width:94%;border-radius:5px}  .vctl{top:6px;right:6px;gap:4px} [dir=rtl] .vctl{left:6px} .vctl button{font-size:8.5px;padding:2px 6px;min-height:17px} .vbar{gap:5px;padding:3px 6px} .vbar button{width:20px;height:20px;font-size:11px} .vbar .vt{font-size:9.5px} }
 .vnote{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:1em}
 /* sections */
 section{padding:72px 0}
@@ -162,7 +170,7 @@ video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-
   </div>
   <div>
     <div class="player" id="heroPlayer">
-      <video id="heroVid" src="demo.mp4" poster="poster.jpg" playsinline loop preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback></video>
+      <video id="heroVid" src="demo.mp4" poster="poster.jpg" muted playsinline preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback></video>
       <button class="play" type="button" aria-label="Play demo"><i></i></button>
     </div>
   </div>
@@ -170,7 +178,8 @@ video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-
 
 <section class="demo-sec" id="demo"><div class="wrap">
   <div class="sec-head"><h2 data-i="demoTitle">See it in about a minute</h2><p data-i="demoSub">The welcome screen, adding items with descriptions, shopping, history, extra lists, sharing and Arabic — the whole app in about a minute.</p></div>
-  <div class="player" id="demoPlayer"><video id="demoVid" src="demo.mp4" poster="poster.jpg" controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata"></video></div>
+  <div class="player" id="demoPlayer"><video id="demoVid" src="demo.mp4" poster="poster.jpg" muted controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata"></video>
+    <button class="play" type="button" aria-label="Play demo"><i></i></button></div>
   <p class="vnote" id="vnote"></p>
 </div></section>
 
@@ -251,6 +260,7 @@ const AR = {
   h1:'قائمة التسوق التي <em>تتشاركها العائلة</em> كلها.',
   lead:'أضف ما يحتاجه البيت من أي مكان، وعلّم عليه في السوبرماركت. كل جوالات العائلة تتحدّث فورًا — لا رسائل ضائعة ولا شراء مكرر.',
   navSlides:'الشرائح', slTitle:'العرض التقديمي ودليل الاستخدام', slSub:'تريد الصورة الكاملة؟ ١٨ شريحة تشرح فكرة التطبيق وتمر على كل ميزة خطوة بخطوة.', sl1:'الفكرة وما تكسبه العائلة', sl2:'كيف بُني وكيف يحافظ على الخصوصية', sl3:'دليل من ٨ خطوات بشاشات حقيقية', slView:'عرض الشرائح',
+  playL:'تشغيل', pauseL:'إيقاف مؤقت', fullL:'ملء الشاشة', seekL:'موضع الفيديو',
   voice:'🔊 الصوت', subs:'الترجمة', noVoice:'لا يوجد صوت عربي على هذا الجهاز — تظهر الترجمة بدلًا منه.', voiceHint:'التعليق الصوتي بالعربية — يمكنك إيقافه من زر الصوت.',
   start:'ابدأ قائمة عائلتك', watch:'▶ شاهد العرض', t1:'مجاني', t2:'أي جوال، بدون متجر تطبيقات', t3:'خاص بعائلتك',
   demoTitle:'شاهده في دقيقة تقريبًا', demoSub:'شاشة الترحيب، إضافة الأغراض مع الوصف، التسوق، السجل، القوائم الإضافية، المشاركة والعربية — التطبيق كله في دقيقة تقريبًا.',
@@ -275,7 +285,7 @@ const AR = {
   finalH:'جرّبه مع عائلتك هذا الأسبوع', finalP:'سجّل في ٣٠ ثانية، ادعُ عائلتك، واجعل مشوارك القادم من قائمة واحدة مشتركة.',
   share:'شارك هذه الصفحة مع صديق', foot:'قائمة تسوق العائلة · صُنعت بعناية للعائلات', copied:'تم نسخ الرابط ✓'
 };
-const EN = {}; document.querySelectorAll('[data-i]').forEach(e=>EN[e.dataset.i]=e.textContent); document.querySelectorAll('[data-i-html]').forEach(e=>EN[e.dataset.iHtml]=e.innerHTML); EN.copied='Link copied ✓'; EN.voice='🔊 Voice'; EN.subs='Subtitles'; EN.noVoice='No English voice on this device — showing subtitles instead.'; EN.voiceHint='Narrated in English — turn it off with the Voice button.';
+const EN = {}; document.querySelectorAll('[data-i]').forEach(e=>EN[e.dataset.i]=e.textContent); document.querySelectorAll('[data-i-html]').forEach(e=>EN[e.dataset.iHtml]=e.innerHTML); EN.copied='Link copied ✓'; EN.voice='🔊 Voice'; EN.playL='Play'; EN.pauseL='Pause'; EN.fullL='Full screen'; EN.seekL='Video position'; EN.subs='Subtitles'; EN.noVoice='No English voice on this device — showing subtitles instead.'; EN.voiceHint='Narrated in English — turn it off with the Voice button.';
 let lang = 'en'; try{ lang = localStorage.getItem('siteLang') || ((navigator.language||'').startsWith('ar') ? 'ar' : 'en'); }catch(e){}
 function apply(l){
   lang=l; const D = l==='ar' ? AR : EN;
@@ -289,9 +299,12 @@ function apply(l){
 document.getElementById('lang').onclick = ()=>apply(lang==='ar'?'en':'ar');
 if (lang==='ar') apply('ar');
 // hero video: plays with sound on tap
-const hv=document.getElementById('heroVid'), hp=document.querySelector('#heroPlayer .play');
-hp.onclick=()=>{ if(window.speechSynthesis&&voiceOn){ try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} } hv.play(); hp.classList.add('hidden'); hv.controls=true; };
 // ---- narration: spoken by the visitor's own device, in the page language ----
+// The video itself stays muted (it has no real sound); the voice comes from speechSynthesis.
+// Rules that keep the voice from cutting: never cancel a sentence just because the next step
+// started (sentences queue instead), keep a reference to every utterance (Chrome drops
+// unreferenced ones mid-sentence), start speech inside the tap that starts the video (iOS),
+// and leave a short gap after cancel() before speaking again (Chrome/Safari drop it otherwise).
 const CUES=[
  [0.3,  'One shopping list for the whole family.', 'قائمة تسوق واحدة للعائلة كلها.'],
  [3.9,  'The welcome screen shows everything the app can do. Tap Get started, and sign up in seconds.', 'شاشة الترحيب تعرض كل ما يقدمه التطبيق. اضغط ابدأ الآن، وسجّل في ثوانٍ.'],
@@ -312,23 +325,39 @@ function pickVoice(l){
   const vs=TTS.getVoices().filter(v=>(v.lang||'').toLowerCase().startsWith(l));
   if(!vs.length) return null;
   const pref = l==='ar' ? ['ar-sa','ar-'] : ['en-us','en-gb','en-'];
-  for(const p of pref){ const v=vs.find(v=>v.lang.toLowerCase().startsWith(p) && /google|natural|siri|enhanced|premium|samantha|daniel|maged|tarik|laila/i.test(v.name)) || vs.find(v=>v.lang.toLowerCase().startsWith(p)); if(v) return v; }
+  for(const p of pref){ const v=vs.find(v=>v.lang.toLowerCase().startsWith(p) && /google|natural|siri|enhanced|premium|samantha|daniel|majed|maged|tarik|laila/i.test(v.name)) || vs.find(v=>v.lang.toLowerCase().startsWith(p)); if(v) return v; }
   return vs[0];
 }
 if(TTS){ TTS.getVoices(); TTS.onvoiceschanged=()=>{ updateNote(); }; }
 function cueAt(t){ let i=-1; for(let k=0;k<CUES.length;k++){ if(t>=CUES[k][0]-0.05) i=k; } return i; }
 function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||66); }
-const players=[];
-function speak(p,i){
-  if(!TTS||!voiceOn||i<0||p.v.muted||p.v.volume===0) return;
-  const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang);
-  if(!v){ return; }
-  TTS.cancel();
+const players=[]; const UTTS=[]; let speakTimer=0;
+function makeUtt(p,i){
+  const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang); if(!v) return null;
   const u=new SpeechSynthesisUtterance(text); try{ u.voice=v; }catch(e){} u.lang=v.lang;
-  const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.3, est=text.length/(lang==='ar'?13:15);
-  u.volume=p.v.volume; u.rate=Math.max(0.95,Math.min(1.35, est/Math.max(1.5,span)*1.05)); u.pitch=1;
+  const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.4, est=text.length/(lang==='ar'?11:13);
+  u.rate=Math.max(1,Math.min(1.3, est/Math.max(1.5,span))); u.pitch=1; u.volume=1;
+  UTTS.push(u); if(UTTS.length>12) UTTS.shift();
+  u.onend=u.onerror=()=>{};
+  return u;
+}
+// queue the sentence for cue i (natural playback: nothing is cut)
+function say(p,i){
+  if(!TTS||!voiceOn||i<0||i<=p.said) return;
+  const u=makeUtt(p,i); if(!u) return; p.said=i;
+  if(TTS.paused) TTS.resume();
   TTS.speak(u);
 }
+// stop everything, then start cue i fresh (after a seek, a resume or a language change)
+function restart(p,i,now){
+  if(!TTS) return; clearTimeout(speakTimer); p.said=-1;
+  const busy=TTS.speaking||TTS.pending;
+  if(busy) TTS.cancel();
+  if(!voiceOn||i<0) return;
+  if(now && !busy){ say(p,i); return; }   // inside a tap with nothing to cancel: speak right away (iOS needs this)
+  speakTimer=setTimeout(()=>{ if(!p.v.paused) say(p,i); },150);
+}
+function stopVoice(){ players.forEach(q=>q.said=-1); if(TTS){ clearTimeout(speakTimer); TTS.cancel(); } }
 function showSub(p,i){ p.sub.textContent = (subsOn||(!pickVoice(lang)&&voiceOn)) && i>=0 && !p.v.paused ? CUES[i][lang==='ar'?2:1] : ''; }
 function updateNote(){
   const n=document.getElementById('vnote'); if(!n) return;
@@ -336,34 +365,74 @@ function updateNote(){
   n.textContent = !voiceOn ? '' : (pickVoice(lang) ? D.voiceHint : D.noVoice);
   players.forEach(p=>showSub(p,p.cur));
 }
+const fmt=t=>{ t=Math.max(0,Math.floor(t||0)); return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
 function setupPlayer(box){
   const v=box.querySelector('video'); if(!v) return;
-  const p={v, cur:-1, sub:document.createElement('div')}; p.sub.className='subs'; p.sub.setAttribute('aria-live','polite');
+  v.muted=true; v.controls=false; v.loop=false;
+  const big=box.querySelector('.play');
+  const p={v, box, cur:-1, said:-1, sub:document.createElement('div')}; p.sub.className='subs'; p.sub.setAttribute('aria-live','polite');
+  box.classList.add('fresh');
+  // top: voice + subtitles
   const ctl=document.createElement('div'); ctl.className='vctl';
   const bv=document.createElement('button'); bv.type='button'; bv.dataset.i='voice';
   const bs=document.createElement('button'); bs.type='button'; bs.dataset.i='subs';
-  const sync=()=>{ const D=lang==='ar'?AR:EN; bv.textContent=D.voice||EN.voice; bs.textContent=D.subs||EN.subs; bv.setAttribute('aria-pressed',voiceOn); bs.setAttribute('aria-pressed',subsOn); };
+  // bottom: play/pause, position, time, full screen
+  const bar=document.createElement('div'); bar.className='vbar';
+  const bp=document.createElement('button'); bp.type='button';
+  const rg=document.createElement('input'); rg.type='range'; rg.min=0; rg.max=1000; rg.value=0; rg.step=1;
+  const tm=document.createElement('span'); tm.className='vt'; tm.textContent='0:00';
+  const bf=document.createElement('button'); bf.type='button'; bf.textContent='⛶';
+  const canFull = !!(box.requestFullscreen||box.webkitRequestFullscreen||v.webkitEnterFullscreen);
+  bar.append(bp,rg,tm); if(canFull) bar.append(bf);
+  const sync=()=>{ const D=lang==='ar'?AR:EN;
+    bv.textContent=D.voice||EN.voice; bs.textContent=D.subs||EN.subs; bv.setAttribute('aria-pressed',voiceOn); bs.setAttribute('aria-pressed',subsOn);
+    bp.textContent=v.paused?'▶':'❚❚'; bp.setAttribute('aria-label',v.paused?(D.playL||EN.playL):(D.pauseL||EN.pauseL));
+    bf.setAttribute('aria-label',D.fullL||EN.fullL); rg.setAttribute('aria-label',D.seekL||EN.seekL); };
   p.sync=sync; sync();
-  bv.onclick=()=>{ voiceOn=!voiceOn; try{localStorage.setItem('siteVoice',voiceOn?'on':'off')}catch(e){} players.forEach(q=>q.sync()); if(!voiceOn&&TTS) TTS.cancel(); else if(!v.paused) speak(p,p.cur); updateNote(); };
+  function start(){            // must run inside a user tap
+    players.forEach(q=>{ if(q!==p && !q.v.paused) q.v.pause(); });
+    box.classList.remove('fresh'); if(big) big.classList.add('hidden');
+    if(v.ended || v.currentTime>=(v.duration||66)-0.2) v.currentTime=0;
+    const i=cueAt(v.currentTime<0.3?0.3:v.currentTime); p.cur=cueAt(v.currentTime);
+    const pr=v.play(); if(pr&&pr.catch) pr.catch(()=>{});
+    if(i>=0 && v.currentTime-CUES[i][0] < (cueEnd(i,v.duration)-CUES[i][0])*0.5){ restart(p,i,true); p.cur=i; } else stopVoice();
+    showSub(p,p.cur);
+  }
+  const toggle=()=>{ if(v.paused) start(); else v.pause(); };
+  if(big) big.onclick=start;
+  bp.onclick=toggle;
+  v.addEventListener('click',toggle);
+  bf.onclick=()=>{ const d=document; if(d.fullscreenElement||d.webkitFullscreenElement){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); return; }
+    if(box.requestFullscreen) box.requestFullscreen(); else if(box.webkitRequestFullscreen) box.webkitRequestFullscreen(); else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen(); };
+  let seeking=false;
+  rg.addEventListener('input',()=>{ seeking=true; if(v.duration){ v.currentTime=rg.value/1000*v.duration; tm.textContent=fmt(v.currentTime); } });
+  rg.addEventListener('change',()=>{ seeking=false; p.cur=cueAt(v.currentTime); const i=p.cur; if(!v.paused && i>=0 && v.currentTime-CUES[i][0] < (cueEnd(i,v.duration)-CUES[i][0])*0.5) restart(p,i,true); else stopVoice(); showSub(p,i); });
+  bv.onclick=()=>{ voiceOn=!voiceOn; try{localStorage.setItem('siteVoice',voiceOn?'on':'off')}catch(e){} players.forEach(q=>q.sync());
+    if(!voiceOn) stopVoice(); else if(!v.paused) restart(p,p.cur,true); updateNote(); };
   bs.onclick=()=>{ subsOn=!subsOn; try{localStorage.setItem('siteSubs',subsOn?'on':'off')}catch(e){} players.forEach(q=>{q.sync(); showSub(q,q.cur);}); };
-  ctl.append(bv,bs); box.append(p.sub,ctl);
-  v.addEventListener('play',()=>{ players.forEach(q=>{ if(q!==p && !q.v.paused) q.v.pause(); }); if(voiceOn) v.loop=false; p.cur=-1; tick(); });
-  v.muted=false;
-  v.addEventListener('volumechange',()=>{ if((v.muted||v.volume===0)&&TTS) TTS.cancel(); });
-  v.addEventListener('seeking',()=>{ p.cur=-1; if(TTS) TTS.cancel(); });
-  v.addEventListener('pause',()=>{ if(TTS) TTS.cancel(); showSub(p,-1); });
-  v.addEventListener('ended',()=>{ if(TTS) TTS.cancel(); p.sub.textContent=''; });
+  ctl.append(bv,bs); box.append(p.sub,ctl,bar);
+  let idleT=0; const wake=()=>{ box.classList.remove('idle'); clearTimeout(idleT); idleT=setTimeout(()=>{ if(!v.paused) box.classList.add('idle'); },2500); };
+  box.addEventListener('pointermove',wake); box.addEventListener('touchstart',wake,{passive:true}); bar.addEventListener('focusin',wake);
+  v.addEventListener('play',()=>{ sync(); wake(); tick(); });
+  v.addEventListener('pause',()=>{ sync(); box.classList.remove('idle'); if(!v.ended) stopVoice(); showSub(p,-1); });
+  v.addEventListener('ended',()=>{ sync(); p.cur=-1; p.sub.textContent=''; rg.value=1000; });   // let the last sentence finish
+  v.addEventListener('waiting',()=>{ if(TTS&&TTS.speaking) TTS.pause(); });
+  v.addEventListener('playing',()=>{ if(TTS&&TTS.paused) TTS.resume(); });
+  v.addEventListener('loadedmetadata',()=>{ tm.textContent=fmt(v.duration); });
   function tick(){
     if(v.paused) return;
+    if(!seeking && v.duration){ rg.value=Math.round(v.currentTime/v.duration*1000); tm.textContent=fmt(v.currentTime); }
     const i=cueAt(v.currentTime);
-    if(i!==p.cur){ p.cur=i; const into=i>=0 ? v.currentTime-CUES[i][0] : 0; if(i>=0 && into < (cueEnd(i,v.duration)-CUES[i][0])*0.5) speak(p,i); showSub(p,i); }
+    if(i!==p.cur){ const next = i===p.cur+1; p.cur=i;
+      if(i>=0 && !seeking){ if(next) say(p,i); else if(v.currentTime-CUES[i][0] < (cueEnd(i,v.duration)-CUES[i][0])*0.5) restart(p,i,false); }
+      showSub(p,i); }
     requestAnimationFrame(tick);
   }
   players.push(p);
 }
 document.querySelectorAll('.player').forEach(setupPlayer);
 updateNote();
-const _apply=apply; apply=function(l){ _apply(l); players.forEach(p=>{ p.sync(); if(TTS) TTS.cancel(); if(!p.v.paused){ speak(p,p.cur); } showSub(p,p.cur); }); updateNote(); };
+const _apply=apply; apply=function(l){ _apply(l); players.forEach(p=>{ p.sync(); if(!p.v.paused) restart(p,p.cur,true); showSub(p,p.cur); }); updateNote(); };
 // share
 document.getElementById('shareBtn').onclick=async()=>{
   const url=location.href.split('#')[0], m=document.getElementById('shareMsg');
