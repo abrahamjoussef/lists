@@ -6,7 +6,7 @@
 <title>Our Shopping List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 <header>
@@ -54,12 +54,18 @@
     <div class="logo">🛒</div>
     <h2 data-i18n="heroTitle">Welcome to Family Shopping List</h2>
     <p data-i18n="heroText">One shared shopping list for your whole family. Whoever is at home adds what the house needs, and whoever goes to the supermarket ticks it off — everyone in the family sees every change on their phone right away.</p>
+    <a class="hero-cta" id="heroCta" href="#authForm" data-i18n="getStarted">Get started — it’s free</a>
     <div class="invite hidden" id="inviteNote" data-i18n="invited">You've been invited to a family list 💚</div>
   </div>
-  <div class="features">
-    <div class="feature"><span>👨‍👩‍👧</span><em data-i18n="feat1">Shared with family</em></div>
-    <div class="feature"><span>🥬</span><em data-i18n="feat2">Sorted by aisle</em></div>
-    <div class="feature"><span>✅</span><em data-i18n="feat3">Tick while shopping</em></div>
+  <div class="features" aria-label="App features">
+    <div class="feature"><span aria-hidden="true">👨‍👩‍👧</span><b data-i18n="f1t">Shared with family</b><small data-i18n="f1d">Everyone sees every change live on their phone.</small></div>
+    <div class="feature"><span aria-hidden="true">🥬</span><b data-i18n="f2t">Sorted by aisle</b><small data-i18n="f2d">Items group by supermarket section by themselves.</small></div>
+    <div class="feature"><span aria-hidden="true">✅</span><b data-i18n="f3t">Shop mode</b><small data-i18n="f3d">Big tick buttons and a progress bar in the shop.</small></div>
+    <div class="feature"><span aria-hidden="true">📝</span><b data-i18n="f4t">Descriptions</b><small data-i18n="f4d">Add details like “2 milk - full fat” to items and lists.</small></div>
+    <div class="feature"><span aria-hidden="true">🎉</span><b data-i18n="f5t">Many lists</b><small data-i18n="f5d">Groceries, a party, the pharmacy — each separate.</small></div>
+    <div class="feature"><span aria-hidden="true">🧾</span><b data-i18n="f6t">Automatic history</b><small data-i18n="f6d">Every trip is saved — repeat it in one tap.</small></div>
+    <div class="feature"><span aria-hidden="true">🔐</span><b data-i18n="f7t">Can edit or view only</b><small data-i18n="f7d">You choose what each family member can do.</small></div>
+    <div class="feature"><span aria-hidden="true">🌐</span><b data-i18n="f8t">Arabic & English</b><small data-i18n="f8d">Full right-to-left layout and Arabic typing.</small></div>
   </div>
   <div class="authcard">
     <form class="box" id="authForm" novalidate>
@@ -75,6 +81,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>
