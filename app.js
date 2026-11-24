@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=17";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=18";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -87,6 +87,7 @@ function canEdit(){ return myRoleOn(owner)!=='view'; }
 function viewOnly(){ setStatus(t('viewOnlyMsg'), true); }
 
 async function addItem(raw){
+  if (!hasList()) return;
   if(!canEdit()) return viewOnly();
   let text = normDigits(raw).trim(); if(!text) return;
   let desc = '';
@@ -242,7 +243,24 @@ function itemRow(it){
   return row;
 }
 
+function renderNoLists(){
+  const ro=!canEdit(), mine=owner===uid;
+  $('summary').textContent = t('noListsSummary');
+  $('bar').style.width='0';
+  $('addbar').classList.add('hidden');
+  document.body.style.paddingBottom='calc(env(safe-area-inset-bottom) + 24px)';
+  const main=$('main'); main.innerHTML=''; main.className='';
+  const e=el('div','empty no-lists'); e.innerHTML='<b>📋</b>';
+  e.appendChild(el('div','nl-title', mine ? t('noListsTitle') : t('noListsOther',{name:(sharedWithMe.find(x=>x.uid===owner)||{}).name||''})));
+  if (!ro){
+    e.appendChild(el('div','nl-text', t('noListsText')));
+    const b=el('button','btn btn-primary nl-create',t('createFirstList')); b.type='button'; b.id='createFirstList'; b.onclick=()=>openListSheet(null);
+    e.appendChild(b);
+  }
+  main.appendChild(e);
+}
 function render(){
+  if (!hasList()) return renderNoLists();
   const all = [...items.values()];
   const todo = all.filter(i=>!i.done), done = all.filter(i=>i.done);
   $('summary').textContent = all.length ? t('summary',{todo:todo.length, done:done.length}) : t('nothingYet');
@@ -473,13 +491,18 @@ $('authForm').addEventListener('submit', async e=>{
 // ---- family: own list + lists shared with me ----
 let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
-let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0}, mainDateFixed=false;
+let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}, mainDateFixed=false;
 const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
 const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', createdAt:mainInfo.createdAt||0});
 const fmtCreated = ts => ts ? t('createdOn',{date:new Date(ts).toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'})}) : '';
 const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
+// the main list can be deleted too; 'none' means the person has no lists at all
+const mainAlive = () => !mainInfo.deleted;
+const allLists = () => (mainAlive() ? [mainEntry()] : []).concat(lists);
+const firstListId = () => { const a=allLists(); return a.length ? a[0].id : 'none'; };
+const hasList = () => listId!=='none';
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
@@ -509,7 +532,7 @@ function updateTitle(){
 }
 function renderListDesc(){
   const d=$('listDesc'); if(!d) return;
-  const l = listId==='main' ? mainEntry() : lists.find(x=>x.id===listId);
+  const l = allLists().find(x=>x.id===listId);
   const txt = l && l.description ? l.description : '', when = l ? fmtCreated(l.createdAt) : '';
   d.innerHTML='';
   if (txt) d.appendChild(el('div','ld-text',txt));
@@ -520,9 +543,9 @@ function renderLists(){
   renderListDesc();
   const box=$('listbar'); if(!box) return; box.innerHTML='';
   const ed = canEdit();
-  if (!lists.length && !ed && !mainCustom()){ box.classList.add('hidden'); return; }
+  const all = allLists();
+  if (!ed && (!all.length || !lists.length && !mainCustom())){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  const all = [mainEntry(), ...lists];
   for (const l of all){
     const on = l.id===listId;
     const b=el('button','ltab'+(on?' on':'')); b.type='button'; b.dataset.list=l.id;
@@ -561,7 +584,6 @@ function renderListSheet(){
   const box=el('div','box'); box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true');
   box.appendChild(el('h3',null,S.edit?t('editListTitle'):t('newListTitle')));
   if(!S.edit) box.appendChild(el('p','sub',t('newListSub')));
-  else if(S.edit.id==='main') box.appendChild(el('p','sub',t('editMainHint')));
   if(S.edit && S.edit.createdAt) box.appendChild(el('p','sub created-on','📅 '+fmtCreated(S.edit.createdAt)));
   const lb=el('label',null,t('listName')); lb.htmlFor='lName'; box.appendChild(lb);
   const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
@@ -583,7 +605,7 @@ function renderListSheet(){
     r.append(no,yes); c.appendChild(r); box.appendChild(c);
   } else {
     const row=el('div','row');
-    if (S.edit && S.edit.id!=='main' && myRoleOn(owner)==='owner'){ const d=el('button','danger',t('delete')); d.type='button'; d.id='lDel'; d.onclick=()=>{ S.name=$('lName').value; S.confirm=true; renderListSheet(); }; row.appendChild(d); }
+    if (S.edit && myRoleOn(owner)==='owner'){ const d=el('button','danger',t('delete')); d.type='button'; d.id='lDel'; d.onclick=()=>{ S.name=$('lName').value; S.confirm=true; renderListSheet(); }; row.appendChild(d); }
     const c=el('button',null,t('cancel')); c.type='button'; c.onclick=closeListSheet;
     const ok=el('button','primary',S.edit?t('save'):t('create')); ok.type='button'; ok.id='lSave'; ok.onclick=saveList;
     row.append(c,ok); box.appendChild(row);
@@ -619,16 +641,18 @@ function saveList(){
   setStatus(t('listCreated',{name}));
 }
 function deleteList(l){
-  if (myRoleOn(owner)!=='owner' || !l || l.id==='main') return;
-  const o=owner, base=listBase(o,l.id);
+  if (myRoleOn(owner)!=='owner' || !l) return;
+  const o=owner, base=listBase(o,l.id), isMain=l.id==='main';
   const itemIds=[...items.keys()], tids=tripIds.slice();
   closeListSheet();
-  lists=lists.filter(x=>x.id!==l.id);
-  openList(o,'main');
+  if (isMain) mainInfo={...mainInfo, deleted:true}; else lists=lists.filter(x=>x.id!==l.id);
+  openList(o, firstListId());
   setStatus(t('listDeleted'));
   (async()=>{
     try{
-      await deleteDoc(doc(fs,'ulists/'+o+'/lists/'+l.id));
+      // the main list's record is kept (marked deleted) so it doesn't come back on the next visit
+      if (isMain) await setDoc(doc(fs,'ulists/'+o+'/lists/main'), {deleted:true, deletedAt:Date.now(), main:true}, {merge:true});
+      else await deleteDoc(doc(fs,'ulists/'+o+'/lists/'+l.id));
       for (const id of itemIds) await deleteDoc(doc(fs, base+'items/'+id));
       for (const id of tids) await deleteDoc(doc(fs, base+'trips/'+id));
       await deleteDoc(doc(fs, base+'meta/recent'));
@@ -651,21 +675,21 @@ function addToolbar(){
 }
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
-  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:'', createdAt:0}; }
+  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}; }
   owner=o; store('shopOwner', o);
   listId = lid || store('shopList:'+o) || 'main';
-  if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId)) listId='main';
+  if (listsLoaded && (listId==='none' ? allLists().length : !allLists().some(l=>l.id===listId)) && !pendingLists.has(listId)) listId=firstListId();
   store('shopList:'+o, listId);
   items=new Map(); trips=[]; tripIds=[]; recent=[]; setStatus('');
-  curBase = listBase(o, listId);
-  db = mkDb(fs, curBase);
+  curBase = hasList() ? listBase(o, listId) : '';
+  db = hasList() ? mkDb(fs, curBase) : null;
   renderSwitcher(); renderLists(); render();
   unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
     const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
-    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), createdAt:+mv.createdAt||0};
+    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), createdAt:+mv.createdAt||0, deleted:!!mv.deleted};
     // the main list existed before dates were recorded: date it from when the account was created
-    if (!mainInfo.createdAt && o===uid && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
+    if (!mainInfo.createdAt && !mainInfo.deleted && o===uid && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
       mainDateFixed=true;
       const cu=window._auth && window._auth.currentUser, ts=(cu && Date.parse(cu.metadata && cu.metadata.creationTime)) || Date.now();
       mainInfo.createdAt=ts;
@@ -675,11 +699,16 @@ function openList(o, lid){
       .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
     for (const l of lists) pendingLists.delete(l.id);
     if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
-    if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId) && !pendingLists.has(listId)){
-      closeListSheet(); openList(o,'main'); setStatus(t('listGone'), true); return;
+    if (listsLoaded && !pendingLists.has(listId)){
+      const gone = listId==='none' ? allLists().length>0 : !allLists().some(l=>l.id===listId);
+      if (gone){
+        const wasReal = listId!=='none' && listId!=='main';
+        closeListSheet(); openList(o, firstListId()); if (wasReal) setStatus(t('listGone'), true); return;
+      }
     }
     renderLists(); updateTitle();
   }, ()=>{}));
+  if (!hasList()) return;   // no lists: only the list of lists is watched
   const curListAt = listId;
   let reachWarn=false;
   let timer = setTimeout(()=>{ reachWarn=true; setStatus(t('cantReach'), true); }, 10000);
