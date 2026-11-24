@@ -137,6 +137,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 }
 @media (max-width:340px){ .features{grid-template-columns:1fr} }
 @media (max-width:420px){ .panel{padding:28px} .final .box{padding:48px 22px} }
+video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
 </style>
 </head>
 <body>
@@ -161,7 +162,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
   </div>
   <div>
     <div class="player" id="heroPlayer">
-      <video id="heroVid" src="demo.mp4" poster="poster.jpg" playsinline loop preload="metadata"></video>
+      <video id="heroVid" src="demo.mp4" poster="poster.jpg" playsinline loop preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback></video>
       <button class="play" type="button" aria-label="Play demo"><i></i></button>
     </div>
   </div>
@@ -169,7 +170,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 
 <section class="demo-sec" id="demo"><div class="wrap">
   <div class="sec-head"><h2 data-i="demoTitle">See it in about a minute</h2><p data-i="demoSub">The welcome screen, adding items with descriptions, shopping, history, extra lists, sharing and Arabic — the whole app in about a minute.</p></div>
-  <div class="player" id="demoPlayer"><video id="demoVid" src="demo.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video></div>
+  <div class="player" id="demoPlayer"><video id="demoVid" src="demo.mp4" poster="poster.jpg" controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata"></video></div>
   <p class="vnote" id="vnote"></p>
 </div></section>
 
@@ -179,7 +180,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
     <h2 data-i="slTitle">Presentation &amp; user guide</h2>
     <p data-i="slSub">Want the full picture? 18 slides explain why we built it and walk through every feature, step by step.</p>
     <ul><li data-i="sl1">The idea and what a family gains</li><li data-i="sl2">How it’s built and kept private</li><li data-i="sl3">An 8-step guide with real screens</li></ul>
-    <div class="cta"><a class="btn btn-primary" href="slides/" data-i="slView">View the slides</a><a class="btn btn-ghost" href="slides/family-shopping-list-slides.pdf" download data-i="slPdf">Download PDF</a></div>
+    <div class="cta"><a class="btn btn-primary" href="slides/" data-i="slView">View the slides</a></div>
   </div>
 </div></section>
 
@@ -240,11 +241,16 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 <footer><div class="wrap" data-i="foot">Family Shopping List · Made with care for families</div></footer>
 
 <script>
+// discourage saving media: no right-click / long-press / drag on videos and slides
+document.addEventListener('contextmenu',e=>{ if(e.target.closest('video,img,.player,.slide,.thumb')) e.preventDefault(); });
+document.addEventListener('dragstart',e=>{ if(e.target.closest('video,img')) e.preventDefault(); });
+</script>
+<script>
 const AR = {
   brand:'قائمة تسوق العائلة', openApp:'افتح التطبيق', eyebrow:'مجاني · عربي وإنجليزي',
   h1:'قائمة التسوق التي <em>تتشاركها العائلة</em> كلها.',
   lead:'أضف ما يحتاجه البيت من أي مكان، وعلّم عليه في السوبرماركت. كل جوالات العائلة تتحدّث فورًا — لا رسائل ضائعة ولا شراء مكرر.',
-  navSlides:'الشرائح', slTitle:'العرض التقديمي ودليل الاستخدام', slSub:'تريد الصورة الكاملة؟ ١٨ شريحة تشرح فكرة التطبيق وتمر على كل ميزة خطوة بخطوة.', sl1:'الفكرة وما تكسبه العائلة', sl2:'كيف بُني وكيف يحافظ على الخصوصية', sl3:'دليل من ٨ خطوات بشاشات حقيقية', slView:'عرض الشرائح', slPdf:'تحميل PDF',
+  navSlides:'الشرائح', slTitle:'العرض التقديمي ودليل الاستخدام', slSub:'تريد الصورة الكاملة؟ ١٨ شريحة تشرح فكرة التطبيق وتمر على كل ميزة خطوة بخطوة.', sl1:'الفكرة وما تكسبه العائلة', sl2:'كيف بُني وكيف يحافظ على الخصوصية', sl3:'دليل من ٨ خطوات بشاشات حقيقية', slView:'عرض الشرائح',
   voice:'🔊 الصوت', subs:'الترجمة', noVoice:'لا يوجد صوت عربي على هذا الجهاز — تظهر الترجمة بدلًا منه.', voiceHint:'التعليق الصوتي بالعربية — يمكنك إيقافه من زر الصوت.',
   start:'ابدأ قائمة عائلتك', watch:'▶ شاهد العرض', t1:'مجاني', t2:'أي جوال، بدون متجر تطبيقات', t3:'خاص بعائلتك',
   demoTitle:'شاهده في دقيقة تقريبًا', demoSub:'شاشة الترحيب، إضافة الأغراض مع الوصف، التسوق، السجل، القوائم الإضافية، المشاركة والعربية — التطبيق كله في دقيقة تقريبًا.',
