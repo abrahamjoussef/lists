@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=13";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=14";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -444,6 +444,7 @@ function showLanding(invited){
   $('auth').classList.remove('hidden');
 }
 $('landLang').onclick=()=>setLang(isAr?'en':'ar');
+$('heroCta').onclick=e=>{ e.preventDefault(); $('authForm').scrollIntoView({behavior:'smooth', block:'start'}); setTimeout(()=>{ const f=$('nameWrap').classList.contains('hidden')?$('aEmail'):$('aName'); try{ f.focus({preventScroll:true}); }catch(_){} },450); };
 $('authForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const auth=window._auth, name=$('aName').value.trim(), email=$('aEmail').value.trim(), pass=$('aPass').value;
