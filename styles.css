@@ -86,6 +86,9 @@ main{padding:4px 12px}
 .feature small{font-size:12.5px;line-height:1.4;color:var(--muted)}
 .hero-cta{display:inline-block;margin-top:20px;background:#fff;color:#14603f;font-weight:800;font-size:16px;padding:12px 22px;border-radius:999px;text-decoration:none;box-shadow:0 6px 18px rgba(0,0,0,.15)}
 .hero-cta:active{transform:scale(.98)}
+.hero-site{display:block;width:max-content;margin:14px auto 0;color:#fff;font-weight:700;font-size:14.5px;text-decoration:underline;text-underline-offset:3px;opacity:.95}
+a.chip{text-decoration:none;display:inline-block}
+.toolbar{flex-wrap:wrap}
 @media (min-width:760px){ .features{grid-template-columns:repeat(4,minmax(0,1fr));max-width:900px} }
 .authcard{max-width:440px;margin:20px auto 32px;padding:0 16px}
 .authcard .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
