@@ -69,10 +69,11 @@ h1 em{font-style:normal;color:var(--green)}
 .vctl button{border:0;border-radius:999px;padding:8px 12px;min-height:36px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;background:rgba(20,35,27,.78);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .vctl button[aria-pressed=false]{background:rgba(20,35,27,.45);color:#d6e3da}
 .vctl button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
-.subs{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:700;font-size:clamp(14px,1.7vw,19px);line-height:1.4;padding:8px 14px;border-radius:12px;text-align:center;pointer-events:none;z-index:2}
-#heroPlayer .subs{bottom:16px}
+.subs{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:52px;max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:600;font-size:clamp(11px,1.15vw,14px);line-height:1.35;padding:5px 10px;border-radius:8px;text-align:center;pointer-events:none;z-index:2}
+#heroPlayer .subs{bottom:12px}
 .subs:empty{display:none}
-html[lang=ar] .subs{font-family:Tajawal,sans-serif;font-size:clamp(15px,1.9vw,21px)}
+html[lang=ar] .subs{font-family:Tajawal,sans-serif;font-size:clamp(12px,1.3vw,15px)}
+@media (max-width:600px){ .subs,html[lang=ar] .subs{font-size:10.5px;bottom:38px;padding:3px 8px;max-width:94%;border-radius:6px} #heroPlayer .subs{bottom:8px} .vctl{top:8px;right:8px;gap:6px} [dir=rtl] .vctl{left:8px} .vctl button{font-size:11.5px;padding:5px 9px;min-height:30px} }
 .vnote{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:1em}
 /* sections */
 section{padding:72px 0}
