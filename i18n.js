@@ -41,7 +41,8 @@ const EN = {
   errNet: 'No internet connection. Please try again.',
   errDisabled: 'Email sign-in is not enabled yet in Firebase.',
   errGeneric: 'Something went wrong. Please try again.',
-  enterName: 'Please enter your name.', enterEmailPass: 'Please enter your email and password.',
+  enterName: 'Please enter your name.', nameShort: 'Your name must have at least 3 letters.',
+  confirmPass: 'Confirm password', confirmPassPh: 'Type your password again', confirmPassNeeded: 'Please type your password again to confirm it.', passMismatch: 'The two passwords don’t match.', enterEmailPass: 'Please enter your email and password.',
 
   cat_produce: 'Fruit & Veg', cat_dairy: 'Dairy & Eggs', cat_meat: 'Meat & Fish', cat_bakery: 'Bakery',
   cat_pantry: 'Pantry', cat_frozen: 'Frozen', cat_drinks: 'Drinks', cat_snacks: 'Snacks',
@@ -144,7 +145,8 @@ const AR = {
   errNet: 'لا يوجد اتصال بالإنترنت. حاول مرة أخرى.',
   errDisabled: 'تسجيل الدخول بالبريد الإلكتروني غير مفعّل بعد في Firebase.',
   errGeneric: 'حدث خطأ ما. حاول مرة أخرى.',
-  enterName: 'يرجى إدخال اسمك.', enterEmailPass: 'يرجى إدخال البريد الإلكتروني وكلمة المرور.',
+  enterName: 'يرجى إدخال اسمك.', nameShort: 'يجب أن يتكون الاسم من ٣ أحرف على الأقل.',
+  confirmPass: 'تأكيد كلمة المرور', confirmPassPh: 'اكتب كلمة المرور مرة أخرى', confirmPassNeeded: 'يرجى كتابة كلمة المرور مرة أخرى لتأكيدها.', passMismatch: 'كلمتا المرور غير متطابقتين.', enterEmailPass: 'يرجى إدخال البريد الإلكتروني وكلمة المرور.',
 
   cat_produce: 'خضار وفواكه', cat_dairy: 'ألبان وبيض', cat_meat: 'لحوم وأسماك', cat_bakery: 'مخبوزات',
   cat_pantry: 'مواد غذائية', cat_frozen: 'مجمدات', cat_drinks: 'مشروبات', cat_snacks: 'وجبات خفيفة',
