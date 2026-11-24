@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slides — Family Shopping List</title>
+<meta name="description" content="Business overview and user guide for Family Shopping List, in 18 slides.">
+<meta property="og:image" content="slide-01.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14231B;--paper:#F7F5EF;--card:#FFFDF8;--line:#DDD7C8;--green:#1E7449;--green-d:#155A38;--muted:#4B5A51;--amber:#E8A33D}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0}
+body{font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--ink);color:#F4F1E8;min-height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:14px max(4vw,16px);flex-wrap:wrap}
+header a.back{color:#C9D8CE;text-decoration:none;font-weight:800;font-size:15px}
+header a.back:hover{color:#fff}
+h1{font-size:18px;font-weight:900;flex:1;min-width:200px}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font:inherit;font-weight:800;font-size:15px;text-decoration:none;border:0;cursor:pointer;min-height:44px}
+.btn-primary{background:var(--green);color:#fff}.btn-primary:hover{background:var(--green-d)}
+main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 max(4vw,12px) 12px}
+.track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;gap:16px;scrollbar-width:none;border-radius:16px}
+.track::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:center;display:flex;justify-content:center}
+.slide img{width:100%;max-width:min(1280px,calc((100vh - 170px) * 16 / 9));height:auto;aspect-ratio:16/9;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.4);background:#F7F5EF;display:block}
+.bar{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 0 6px}
+.nav{width:48px;height:48px;border-radius:50%;border:1.5px solid rgba(244,241,232,.25);background:transparent;color:#F4F1E8;font-size:22px;font-weight:900;cursor:pointer}
+.nav:hover{border-color:var(--amber);color:var(--amber)}
+.nav:disabled{opacity:.3;cursor:default;border-color:rgba(244,241,232,.25);color:#F4F1E8}
+.nav:focus-visible,.btn:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.count{font-weight:800;font-size:16px;min-width:76px;text-align:center;color:#C9D8CE;font-variant-numeric:tabular-nums}
+.hint{text-align:center;font-size:13px;color:#8FA597;padding-bottom:14px}
+@media (max-width:600px){h1{font-size:16px}.btn{padding:9px 14px;font-size:14px}.hint{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../">← Back to the site</a>
+  <h1>Business overview &amp; user guide</h1>
+  <a class="btn btn-primary" href="family-shopping-list-slides.pdf" download>⬇ Download PDF</a>
+</header>
+<main>
+  <div class="track" id="track" tabindex="0" aria-label="Slides" aria-roledescription="carousel">
+    <figure class="slide" id="s1"><img src="slide-01.jpg" alt="Slide 1: Family Shopping List — business overview and user guide" width="1600" height="900" decoding="async"></figure>
+    <figure class="slide" id="s2"><img src="slide-02.jpg" alt="Slide 2: The problem: family shopping today is scattered" width="1600" height="900" decoding="async"></figure>
+    <figure class="slide" id="s3"><img src="slide-03.jpg" alt="Slide 3: The solution: one live list on every family phone" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s4"><img src="slide-04.jpg" alt="Slide 4: What the family gains" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s5"><img src="slide-05.jpg" alt="Slide 5: Features at a glance" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s6"><img src="slide-06.jpg" alt="Slide 6: How it is built" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s7"><img src="slide-07.jpg" alt="Slide 7: Quality: tested before every release" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s8"><img src="slide-08.jpg" alt="Slide 8: Part 2: User guide" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s9"><img src="slide-09.jpg" alt="Slide 9: Step 1: Open the app and sign up" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s10"><img src="slide-10.jpg" alt="Slide 10: Step 2: Add what the house needs" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s11"><img src="slide-11.jpg" alt="Slide 11: Step 3: Tick items off in the supermarket" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s12"><img src="slide-12.jpg" alt="Slide 12: Step 4: Every trip is saved for you" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s13"><img src="slide-13.jpg" alt="Slide 13: Step 5: Invite your family" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s14"><img src="slide-14.jpg" alt="Slide 14: Step 6: Switch between people and lists" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s15"><img src="slide-15.jpg" alt="Slide 15: Step 7: Create and describe lists" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s16"><img src="slide-16.jpg" alt="Slide 16: Step 8: Use it in Arabic or English" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s17"><img src="slide-17.jpg" alt="Slide 17: Quick answers" width="1600" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="slide" id="s18"><img src="slide-18.jpg" alt="Slide 18: Welcome — start today" width="1600" height="900" loading="lazy" decoding="async"></figure>
+  </div>
+  <div class="bar">
+    <button class="nav" id="prev" type="button" aria-label="Previous slide">‹</button>
+    <span class="count" id="count" aria-live="polite">1 / 18</span>
+    <button class="nav" id="next" type="button" aria-label="Next slide">›</button>
+  </div>
+  <p class="hint">Swipe, or use the ← → keys</p>
+</main>
+<script>
+{
+  const track=document.getElementById('track'), slides=[...track.children], N=slides.length;
+  const prev=document.getElementById('prev'), next=document.getElementById('next'), count=document.getElementById('count');
+  let cur=0;
+  const go=i=>{ i=Math.max(0,Math.min(N-1,i)); slides[i].scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); };
+  const show=i=>{ cur=i; count.textContent=(i+1)+' / '+N; prev.disabled=i===0; next.disabled=i===N-1; try{ history.replaceState(null,'','#s'+(i+1)); }catch(e){} };
+  prev.onclick=()=>go(cur-1); next.onclick=()=>go(cur+1);
+  document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();go(cur+1);} if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(cur-1);} if(e.key==='Home')go(0); if(e.key==='End')go(N-1); });
+  const io=new IntersectionObserver(es=>{ es.forEach(en=>{ if(en.isIntersecting&&en.intersectionRatio>.6) show(slides.indexOf(en.target)); }); },{root:track,threshold:[.6]});
+  slides.forEach(s=>io.observe(s));
+  const start=parseInt((location.hash.match(/^#s(\d+)$/)||[])[1]||'1',10)-1;
+  show(Math.max(0,Math.min(N-1,start)));
+  if(start>0) requestAnimationFrame(()=>{ track.style.scrollBehavior='auto'; slides[Math.min(N-1,start)].scrollIntoView({block:'nearest',inline:'center'}); track.style.scrollBehavior=''; });
+}
+</script>
+</body>
+</html>
