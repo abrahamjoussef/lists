@@ -6,7 +6,7 @@
 <title>Our Shopping List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
 <header>
@@ -28,7 +28,7 @@
 
 <div class="addbar" id="addbar">
   <form class="addrow" id="addForm" autocomplete="off">
-    <input id="addInput" placeholder="Add an item… e.g. 2 milk" data-i18n-ph="addPlaceholder" enterkeyhint="done">
+    <input id="addInput" placeholder="Add an item… e.g. 2 milk - 1 L" data-i18n-ph="addPlaceholder" enterkeyhint="done">
     <button type="submit" data-i18n="add">Add</button>
   </form>
   <div class="catpick" id="catPick"></div>
@@ -38,7 +38,7 @@
   <div class="box">
     <h3 data-i18n="editTitle">Edit item</h3>
     <label data-i18n="name">Name</label><input id="eName">
-    <label data-i18n="note">Note (brand, size…)</label><input id="eNote" placeholder="optional" data-i18n-ph="optional">
+    <label data-i18n="note">Description (brand, size, details)</label><input id="eNote" maxlength="120" placeholder="e.g. lactose free, 1 L" data-i18n-ph="descPh">
     <label data-i18n="section">Section</label><div class="chips" id="eCats" style="padding-left:0"></div>
     <div class="row">
       <button class="danger" id="eDel" data-i18n="delete">Delete</button>
@@ -75,6 +75,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
