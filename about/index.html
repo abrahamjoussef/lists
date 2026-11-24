@@ -64,6 +64,16 @@ h1 em{font-style:normal;color:var(--green)}
 .play i::after{content:"";margin-left:6px;border-style:solid;border-width:14px 0 14px 22px;border-color:transparent transparent transparent #fff}
 .play.hidden{display:none}
 .caption{font-size:14px;color:var(--muted);margin-top:12px;text-align:center}
+.vctl{position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:3}
+[dir=rtl] .vctl{right:auto;left:12px}
+.vctl button{border:0;border-radius:999px;padding:8px 12px;min-height:36px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;background:rgba(20,35,27,.78);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.vctl button[aria-pressed=false]{background:rgba(20,35,27,.45);color:#d6e3da}
+.vctl button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.subs{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);max-width:88%;background:rgba(20,35,27,.82);color:#fff;font-weight:700;font-size:clamp(14px,1.7vw,19px);line-height:1.4;padding:8px 14px;border-radius:12px;text-align:center;pointer-events:none;z-index:2}
+#heroPlayer .subs{bottom:16px}
+.subs:empty{display:none}
+html[lang=ar] .subs{font-family:Tajawal,sans-serif;font-size:clamp(15px,1.9vw,21px)}
+.vnote{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:1em}
 /* sections */
 section{padding:72px 0}
 .sec-head{text-align:center;max-width:680px;margin:0 auto 44px}
@@ -158,7 +168,8 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 
 <section class="demo-sec" id="demo"><div class="wrap">
   <div class="sec-head"><h2 data-i="demoTitle">See it in about a minute</h2><p data-i="demoSub">The welcome screen, adding items with descriptions, shopping, history, extra lists, sharing and Arabic — the whole app in about a minute.</p></div>
-  <div class="player"><video src="demo.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video></div>
+  <div class="player" id="demoPlayer"><video id="demoVid" src="demo.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video></div>
+  <p class="vnote" id="vnote"></p>
 </div></section>
 
 <section id="slides"><div class="wrap deck">
@@ -233,6 +244,7 @@ const AR = {
   h1:'قائمة التسوق التي <em>تتشاركها العائلة</em> كلها.',
   lead:'أضف ما يحتاجه البيت من أي مكان، وعلّم عليه في السوبرماركت. كل جوالات العائلة تتحدّث فورًا — لا رسائل ضائعة ولا شراء مكرر.',
   navSlides:'الشرائح', slTitle:'العرض التقديمي ودليل الاستخدام', slSub:'تريد الصورة الكاملة؟ ١٨ شريحة تشرح فكرة التطبيق وتمر على كل ميزة خطوة بخطوة.', sl1:'الفكرة وما تكسبه العائلة', sl2:'كيف بُني وكيف يحافظ على الخصوصية', sl3:'دليل من ٨ خطوات بشاشات حقيقية', slView:'عرض الشرائح', slPdf:'تحميل PDF',
+  voice:'🔊 الصوت', subs:'الترجمة', noVoice:'لا يوجد صوت عربي على هذا الجهاز — تظهر الترجمة بدلًا منه.', voiceHint:'التعليق الصوتي بالعربية — يمكنك إيقافه من زر الصوت.',
   start:'ابدأ قائمة عائلتك', watch:'▶ شاهد العرض', t1:'مجاني', t2:'أي جوال، بدون متجر تطبيقات', t3:'خاص بعائلتك',
   demoTitle:'شاهده في دقيقة تقريبًا', demoSub:'شاشة الترحيب، إضافة الأغراض مع الوصف، التسوق، السجل، القوائم الإضافية، المشاركة والعربية — التطبيق كله في دقيقة تقريبًا.',
   howTitle:'جاهز في ثلاث خطوات', howSub:'بدون تحميل أو إعداد. يعمل من المتصفح على آيفون وأندرويد.',
@@ -256,7 +268,7 @@ const AR = {
   finalH:'جرّبه مع عائلتك هذا الأسبوع', finalP:'سجّل في ٣٠ ثانية، ادعُ عائلتك، واجعل مشوارك القادم من قائمة واحدة مشتركة.',
   share:'شارك هذه الصفحة مع صديق', foot:'قائمة تسوق العائلة · صُنعت بعناية للعائلات', copied:'تم نسخ الرابط ✓'
 };
-const EN = {}; document.querySelectorAll('[data-i]').forEach(e=>EN[e.dataset.i]=e.textContent); document.querySelectorAll('[data-i-html]').forEach(e=>EN[e.dataset.iHtml]=e.innerHTML); EN.copied='Link copied ✓';
+const EN = {}; document.querySelectorAll('[data-i]').forEach(e=>EN[e.dataset.i]=e.textContent); document.querySelectorAll('[data-i-html]').forEach(e=>EN[e.dataset.iHtml]=e.innerHTML); EN.copied='Link copied ✓'; EN.voice='🔊 Voice'; EN.subs='Subtitles'; EN.noVoice='No English voice on this device — showing subtitles instead.'; EN.voiceHint='Narrated in English — turn it off with the Voice button.';
 let lang = 'en'; try{ lang = localStorage.getItem('siteLang') || ((navigator.language||'').startsWith('ar') ? 'ar' : 'en'); }catch(e){}
 function apply(l){
   lang=l; const D = l==='ar' ? AR : EN;
@@ -271,7 +283,78 @@ document.getElementById('lang').onclick = ()=>apply(lang==='ar'?'en':'ar');
 if (lang==='ar') apply('ar');
 // hero video: plays muted on tap
 const hv=document.getElementById('heroVid'), hp=document.querySelector('#heroPlayer .play');
-hp.onclick=()=>{ hv.play(); hp.classList.add('hidden'); hv.controls=true; };
+hp.onclick=()=>{ if(window.speechSynthesis&&voiceOn){ try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} } hv.play(); hp.classList.add('hidden'); hv.controls=true; };
+// ---- narration: spoken by the visitor's own device, in the page language ----
+const CUES=[
+ [0.3,  'One shopping list for the whole family.', 'قائمة تسوق واحدة للعائلة كلها.'],
+ [3.9,  'The welcome screen shows everything the app can do. Tap Get started, and sign up in seconds.', 'شاشة الترحيب تعرض كل ما يقدمه التطبيق. اضغط ابدأ الآن، وسجّل في ثوانٍ.'],
+ [15.0, 'Type an item, like two milk, full fat. The quantity and the description are picked up for you.', 'اكتب الغرض، مثل حليب اثنين، كامل الدسم. الكمية والوصف يُضافان تلقائيًا.'],
+ [24.1, 'Items sort by supermarket section.', 'الأغراض تترتب حسب أقسام السوق.'],
+ [27.4, 'In the shop, tick items off. Everyone at home sees it live.', 'في السوق، حدّد ما اشتريته، والعائلة تراه فورًا.'],
+ [34.7, 'Every trip is saved to History.', 'كل مشوار يُحفظ في السجل.'],
+ [39.7, 'Create a list for anything, with a name, an icon and a description.', 'أنشئ قائمة لأي مناسبة، باسم وأيقونة ووصف.'],
+ [50.3, 'Share with your family, and choose who can edit, or only view.', 'شارك عائلتك، واختر من يعدّل ومن يشاهد فقط.'],
+ [56.8, 'Switch between Arabic and English with one tap.', 'بدّل بين العربية والإنجليزية بلمسة واحدة.'],
+ [62.3, 'Free, on any phone. Try it today.', 'مجاني على أي جوال. جرّبه اليوم.']
+];
+const TTS=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window) ? window.speechSynthesis : null;
+let voiceOn=true, subsOn=false;
+try{ voiceOn = localStorage.getItem('siteVoice')!=='off'; subsOn = localStorage.getItem('siteSubs')==='on'; }catch(e){}
+function pickVoice(l){
+  if(!TTS) return null;
+  const vs=TTS.getVoices().filter(v=>(v.lang||'').toLowerCase().startsWith(l));
+  if(!vs.length) return null;
+  const pref = l==='ar' ? ['ar-sa','ar-'] : ['en-us','en-gb','en-'];
+  for(const p of pref){ const v=vs.find(v=>v.lang.toLowerCase().startsWith(p) && /google|natural|siri|enhanced|premium|samantha|daniel|maged|tarik|laila/i.test(v.name)) || vs.find(v=>v.lang.toLowerCase().startsWith(p)); if(v) return v; }
+  return vs[0];
+}
+if(TTS){ TTS.getVoices(); TTS.onvoiceschanged=()=>{ updateNote(); }; }
+function cueAt(t){ let i=-1; for(let k=0;k<CUES.length;k++){ if(t>=CUES[k][0]-0.05) i=k; } return i; }
+function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||66); }
+const players=[];
+function speak(p,i){
+  if(!TTS||!voiceOn||i<0) return;
+  const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang);
+  if(!v){ return; }
+  TTS.cancel();
+  const u=new SpeechSynthesisUtterance(text); try{ u.voice=v; }catch(e){} u.lang=v.lang;
+  const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.3, est=text.length/(lang==='ar'?13:15);
+  u.rate=Math.max(0.95,Math.min(1.35, est/Math.max(1.5,span)*1.05)); u.pitch=1;
+  TTS.speak(u);
+}
+function showSub(p,i){ p.sub.textContent = (subsOn||(!pickVoice(lang)&&voiceOn)) && i>=0 && !p.v.paused ? CUES[i][lang==='ar'?2:1] : ''; }
+function updateNote(){
+  const n=document.getElementById('vnote'); if(!n) return;
+  const D=lang==='ar'?AR:EN;
+  n.textContent = !voiceOn ? '' : (pickVoice(lang) ? D.voiceHint : D.noVoice);
+  players.forEach(p=>showSub(p,p.cur));
+}
+function setupPlayer(box){
+  const v=box.querySelector('video'); if(!v) return;
+  const p={v, cur:-1, sub:document.createElement('div')}; p.sub.className='subs'; p.sub.setAttribute('aria-live','polite');
+  const ctl=document.createElement('div'); ctl.className='vctl';
+  const bv=document.createElement('button'); bv.type='button'; bv.dataset.i='voice';
+  const bs=document.createElement('button'); bs.type='button'; bs.dataset.i='subs';
+  const sync=()=>{ const D=lang==='ar'?AR:EN; bv.textContent=D.voice||EN.voice; bs.textContent=D.subs||EN.subs; bv.setAttribute('aria-pressed',voiceOn); bs.setAttribute('aria-pressed',subsOn); };
+  p.sync=sync; sync();
+  bv.onclick=()=>{ voiceOn=!voiceOn; try{localStorage.setItem('siteVoice',voiceOn?'on':'off')}catch(e){} players.forEach(q=>q.sync()); if(!voiceOn&&TTS) TTS.cancel(); else if(!v.paused) speak(p,p.cur); updateNote(); };
+  bs.onclick=()=>{ subsOn=!subsOn; try{localStorage.setItem('siteSubs',subsOn?'on':'off')}catch(e){} players.forEach(q=>{q.sync(); showSub(q,q.cur);}); };
+  ctl.append(bv,bs); box.append(p.sub,ctl);
+  v.addEventListener('play',()=>{ players.forEach(q=>{ if(q!==p && !q.v.paused) q.v.pause(); }); if(voiceOn) v.loop=false; p.cur=-1; tick(); });
+  v.addEventListener('seeking',()=>{ p.cur=-1; if(TTS) TTS.cancel(); });
+  v.addEventListener('pause',()=>{ if(TTS) TTS.cancel(); showSub(p,-1); });
+  v.addEventListener('ended',()=>{ if(TTS) TTS.cancel(); p.sub.textContent=''; });
+  function tick(){
+    if(v.paused) return;
+    const i=cueAt(v.currentTime);
+    if(i!==p.cur){ p.cur=i; const into=i>=0 ? v.currentTime-CUES[i][0] : 0; if(i>=0 && into < (cueEnd(i,v.duration)-CUES[i][0])*0.5) speak(p,i); showSub(p,i); }
+    requestAnimationFrame(tick);
+  }
+  players.push(p);
+}
+document.querySelectorAll('.player').forEach(setupPlayer);
+updateNote();
+const _apply=apply; apply=function(l){ _apply(l); players.forEach(p=>{ p.sync(); if(TTS) TTS.cancel(); if(!p.v.paused){ speak(p,p.cur); } showSub(p,p.cur); }); updateNote(); };
 // share
 document.getElementById('shareBtn').onclick=async()=>{
   const url=location.href.split('#')[0], m=document.getElementById('shareMsg');
