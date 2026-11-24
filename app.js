@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=14";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=15";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -444,6 +444,8 @@ function showLanding(invited){
   $('auth').classList.remove('hidden');
 }
 $('landLang').onclick=()=>setLang(isAr?'en':'ar');
+function syncSiteLang(){ try{ localStorage.setItem('siteLang', isAr?'ar':'en'); }catch(e){} }
+$('heroSite').onclick=syncSiteLang;
 $('heroCta').onclick=e=>{ e.preventDefault(); $('authForm').scrollIntoView({behavior:'smooth', block:'start'}); setTimeout(()=>{ const f=$('nameWrap').classList.contains('hidden')?$('aEmail'):$('aName'); try{ f.focus({preventScroll:true}); }catch(_){} },450); };
 $('authForm').addEventListener('submit', async e=>{
   e.preventDefault();
@@ -630,7 +632,8 @@ function addToolbar(){
   const out=el('button','chip',t('signOut'));
   out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
   const lg=el('button','chip lang-chip',t('langSwitch')); lg.onclick=()=>setLang(isAr?'en':'ar');
-  bar.append(out, lg, el('span','who-am-i',t('hi',{name:me})));
+  const site=el('a','chip site-chip',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
+  bar.append(out, lg, site, el('span','who-am-i',t('hi',{name:me})));
   sw.setAttribute('aria-label', t('peopleNav'));
   const lb=el('div','listbar'); lb.id='listbar'; lb.setAttribute('aria-label', t('listsNav'));
   const ld=el('div','list-desc hidden'); ld.id='listDesc';
