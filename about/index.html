@@ -306,47 +306,63 @@ if (lang==='ar') apply('ar');
 // unreferenced ones mid-sentence), start speech inside the tap that starts the video (iOS),
 // and leave a short gap after cancel() before speaking again (Chrome/Safari drop it otherwise).
 const CUES=[
- [0.3,  'One shopping list for the whole family.', 'قائمة تسوق واحدة للعائلة كلها.'],
- [3.9,  'The welcome screen shows everything the app can do. Tap Get started, and sign up in seconds.', 'شاشة الترحيب تعرض كل ما يقدمه التطبيق. اضغط ابدأ الآن، وسجّل في ثوانٍ.'],
- [15.0, 'Type an item, like two milk, full fat. The quantity and the description are picked up for you.', 'اكتب الغرض، مثل حليب اثنين، كامل الدسم. الكمية والوصف يُضافان تلقائيًا.'],
- [24.1, 'Items sort by supermarket section.', 'الأغراض تترتب حسب أقسام السوق.'],
- [27.4, 'In the shop, tick items off. Everyone at home sees it live.', 'في السوق، حدّد ما اشتريته، والعائلة تراه فورًا.'],
- [34.7, 'Every trip is saved to History.', 'كل مشوار يُحفظ في السجل.'],
- [39.7, 'Create a list for anything, with a name, an icon and a description.', 'أنشئ قائمة لأي مناسبة، باسم وأيقونة ووصف.'],
- [50.3, 'Share with your family, and choose who can edit, or only view.', 'شارك عائلتك، واختر من يعدّل ومن يشاهد فقط.'],
- [56.8, 'Switch between Arabic and English with one tap.', 'بدّل بين العربية والإنجليزية بلمسة واحدة.'],
- [62.3, 'Free, on any phone. Try it today.', 'مجاني على أي جوال. جرّبه اليوم.']
+ [0.3,  'Meet the family shopping list.', 'هذي قائمة تسوّق العائلة.'],
+ [3.9,  'Everything it can do is right there on the welcome screen. Just tap Get started, and you\'re in.', 'كل مميزاته تشوفها من أول شاشة. اضغط «ابدأ الآن»، وتكون جاهز.'],
+ [15.0, 'Add things the way you\'d say them. Two milk, full fat. It sorts out the rest.', 'اكتب الغرض مثل ما تقوله: حليب اثنين، كامل الدسم. والباقي عليه.'],
+ [24.1, 'And it groups them by aisle.', 'ويرتّبها حسب أقسام السوق.'],
+ [27.4, 'At the store, just tick things off. Everyone at home sees it straight away.', 'في السوق، علّم على اللي اشتريته. وأهلك في البيت يشوفونه على طول.'],
+ [34.7, 'Every trip is saved, so nothing gets lost.', 'وكل مشوار ينحفظ في السجل.'],
+ [39.7, 'Need a list for a party, or the pharmacy? Make as many as you like, each with its own name and icon.', 'تحتاج قائمة لعزيمة أو للصيدلية؟ سوِّ قوائم قد ما تبي، كل وحدة باسمها وأيقونتها.'],
+ [50.3, 'Invite your family, and decide who can edit, and who can just look.', 'ادعُ أهلك، وحدّد مين يعدّل، ومين يشوف بس.'],
+ [56.8, 'It speaks Arabic and English, too.', 'ويدعم العربي والإنجليزي.'],
+ [62.3, 'It\'s free. Give it a try!', 'وهو مجاني. جرّبه الحين!']
 ];
 const TTS=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window) ? window.speechSynthesis : null;
 let voiceOn=true, subsOn=false;
 try{ voiceOn = localStorage.getItem('siteVoice')!=='off'; subsOn = localStorage.getItem('siteSubs')==='on'; }catch(e){}
+// pick the most human-sounding voice the device has
+const NOVELTY=/albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|kathy|ralph|grandma|grandpa|rocko|shelley|flo\b|eddy|reed|sandy/i;
+function voiceScore(v,l){
+  const n=v.name||'', lg=(v.lang||'').toLowerCase(); let s=0;
+  if(NOVELTY.test(n)) s-=100;
+  if(/natural|neural/i.test(n)) s+=60;           // Edge / Windows neural voices
+  if(/premium/i.test(n)) s+=50;
+  if(/enhanced/i.test(n)) s+=45;
+  if(/siri/i.test(n)) s+=40;
+  if(/google/i.test(n)) s+=30;
+  if(/online/i.test(n)) s+=20;
+  if(l==='en' && /samantha|ava|allison|susan|zoe|evan|nathan|joelle|noelle|aria|jenny|guy|daniel|serena|karen|moira/i.test(n)) s+=12;
+  if(l==='ar' && /majed|maged|laila|tarik|hamed|zariyah|hoda|naayf|amina|fatima|shakir/i.test(n)) s+=12;
+  if(lg==='en-us'||lg==='ar-sa') s+=6; else if(lg==='en-gb'||lg==='ar-001') s+=4;
+  if(v.default) s+=2;
+  return s;
+}
 function pickVoice(l){
   if(!TTS) return null;
-  const vs=TTS.getVoices().filter(v=>(v.lang||'').toLowerCase().startsWith(l));
+  const vs=TTS.getVoices().filter(v=>(v.lang||'').toLowerCase().replace('_','-').startsWith(l));
   if(!vs.length) return null;
-  const pref = l==='ar' ? ['ar-sa','ar-'] : ['en-us','en-gb','en-'];
-  for(const p of pref){ const v=vs.find(v=>v.lang.toLowerCase().startsWith(p) && /google|natural|siri|enhanced|premium|samantha|daniel|majed|maged|tarik|laila/i.test(v.name)) || vs.find(v=>v.lang.toLowerCase().startsWith(p)); if(v) return v; }
-  return vs[0];
+  return vs.map(v=>[voiceScore(v,l),v]).sort((a,b)=>b[0]-a[0])[0][1];
 }
 if(TTS){ TTS.getVoices(); TTS.onvoiceschanged=()=>{ updateNote(); }; }
 function cueAt(t){ let i=-1; for(let k=0;k<CUES.length;k++){ if(t>=CUES[k][0]-0.05) i=k; } return i; }
 function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||66); }
 const players=[]; const UTTS=[]; let speakTimer=0;
-function makeUtt(p,i){
-  const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang); if(!v) return null;
-  const u=new SpeechSynthesisUtterance(text); try{ u.voice=v; }catch(e){} u.lang=v.lang;
-  const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.4, est=text.length/(lang==='ar'?11:13);
-  u.rate=Math.max(1,Math.min(1.3, est/Math.max(1.5,span))); u.pitch=1; u.volume=1;
-  UTTS.push(u); if(UTTS.length>12) UTTS.shift();
-  u.onend=u.onerror=()=>{};
-  return u;
+function makeUtts(p,i){
+  const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang); if(!v) return [];
+  // a natural pace: about 1.0, only nudged a little if the line would overrun its step
+  const span=cueEnd(i,p.v.duration)-CUES[i][0]-0.5, est=text.length/(lang==='ar'?11:13.5);
+  const rate=Math.max(0.95,Math.min(1.08, est/Math.max(1.5,span)));
+  // one utterance per sentence, so the voice takes a real breath between sentences
+  const parts=text.match(/[^.!?؟]+[.!?؟]*/g).map(x=>x.trim()).filter(Boolean);
+  return parts.map(t=>{ const u=new SpeechSynthesisUtterance(t); try{ u.voice=v; }catch(e){} u.lang=v.lang; u.rate=rate; u.pitch=1; u.volume=1;
+    UTTS.push(u); if(UTTS.length>24) UTTS.shift(); u.onend=u.onerror=()=>{}; return u; });
 }
-// queue the sentence for cue i (natural playback: nothing is cut)
+// queue the sentence(s) for cue i (natural playback: nothing is cut)
 function say(p,i){
   if(!TTS||!voiceOn||i<0||i<=p.said) return;
-  const u=makeUtt(p,i); if(!u) return; p.said=i;
+  const us=makeUtts(p,i); if(!us.length) return; p.said=i;
   if(TTS.paused) TTS.resume();
-  TTS.speak(u);
+  us.forEach(u=>TTS.speak(u));
 }
 // stop everything, then start cue i fresh (after a seek, a resume or a language change)
 function restart(p,i,now){
