@@ -32,6 +32,17 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:64px}
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
 .btn-ghost:hover{border-color:var(--ink)}
 nav .btn{padding:9px 18px;font-size:15px;box-shadow:none}
+.navlink{font-weight:800;font-size:15px;text-decoration:none;padding:8px 6px;color:var(--ink)}
+.navlink:hover{color:var(--green)}
+/* slides */
+.deck{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center}
+.deck a.thumb{display:block;border-radius:20px;overflow:hidden;border:1px solid var(--line);box-shadow:0 24px 60px rgba(20,35,27,.18);transition:transform .2s}
+.deck a.thumb:hover{transform:translateY(-3px)}
+.deck img{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.deck h2{margin-bottom:12px}
+.deck p{color:var(--muted);font-size:18px;margin-bottom:22px}
+.deck ul{list-style:none;display:grid;gap:8px;margin-bottom:26px;font-weight:700}
+.deck li::before{content:"✓ ";color:var(--green);font-weight:900}
 /* hero */
 .hero{padding:72px 0 40px}
 .hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
@@ -109,7 +120,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
   .hero .wrap{grid-template-columns:1fr;gap:36px}
   .hero{padding:44px 0 24px}
   .features{grid-template-columns:repeat(2,1fr)}
-  .steps,.split{grid-template-columns:1fr}
+  .steps,.split,.deck{grid-template-columns:1fr}
   nav .btn{display:none}
   section{padding:56px 0}
 }
@@ -121,6 +132,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 <nav><div class="wrap">
   <a class="logo" href="#top"><span>🛒</span><b data-i="brand">Family Shopping List</b></a>
   <div class="grow"></div>
+  <a class="navlink" href="slides/" data-i="navSlides">Slides</a>
   <button class="lang" id="lang" type="button">عربي</button>
   <a class="btn btn-primary" href="https://abrahamjoussef.github.io/shopping-list/" data-i="openApp">Open the app</a>
 </div></nav>
@@ -145,8 +157,18 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
 </div></header>
 
 <section class="demo-sec" id="demo"><div class="wrap">
-  <div class="sec-head"><h2 data-i="demoTitle">See it in under a minute</h2><p data-i="demoSub">Adding items, shopping, history, extra lists, sharing and Arabic — the whole app in 53 seconds.</p></div>
+  <div class="sec-head"><h2 data-i="demoTitle">See it in under a minute</h2><p data-i="demoSub">Adding items with descriptions, shopping, history, extra lists, sharing and Arabic — the whole app in under a minute.</p></div>
   <div class="player"><video src="demo.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video></div>
+</div></section>
+
+<section id="slides"><div class="wrap deck">
+  <a class="thumb" href="slides/" aria-label="Open the slides"><img src="slides/slide-01.jpg" alt="First slide: Family Shopping List — business overview and user guide" width="1600" height="900" loading="lazy"></a>
+  <div>
+    <h2 data-i="slTitle">Presentation &amp; user guide</h2>
+    <p data-i="slSub">Want the full picture? 18 slides explain why we built it and walk through every feature, step by step.</p>
+    <ul><li data-i="sl1">The idea and what a family gains</li><li data-i="sl2">How it’s built and kept private</li><li data-i="sl3">An 8-step guide with real screens</li></ul>
+    <div class="cta"><a class="btn btn-primary" href="slides/" data-i="slView">View the slides</a><a class="btn btn-ghost" href="slides/family-shopping-list-slides.pdf" download data-i="slPdf">Download PDF</a></div>
+  </div>
 </div></section>
 
 <section id="how"><div class="wrap">
@@ -165,7 +187,7 @@ footer{padding:28px 0 40px;text-align:center;color:var(--muted);font-size:14px}
     <div class="feat"><div class="ic">🥬</div><h3 data-i="f2h">Sorted by aisle</h3><p data-i="f2p">Items group themselves by supermarket section.</p></div>
     <div class="feat"><div class="ic">✅</div><h3 data-i="f3h">Shop mode</h3><p data-i="f3p">Big tick targets and a progress bar.</p></div>
     <div class="feat"><div class="ic">🧾</div><h3 data-i="f4h">Automatic history</h3><p data-i="f4p">Every trip is saved — repeat it in one tap.</p></div>
-    <div class="feat"><div class="ic">🎉</div><h3 data-i="f5h">Many lists</h3><p data-i="f5p">Groceries, a party, the pharmacy — each separate.</p></div>
+    <div class="feat"><div class="ic">🎉</div><h3 data-i="f5h">Lists &amp; descriptions</h3><p data-i="f5p">Many lists, each with a description — and notes on every item.</p></div>
     <div class="feat"><div class="ic">👨‍👩‍👧</div><h3 data-i="f6h">Family roles</h3><p data-i="f6p">“Can edit” or “View only” for each person.</p></div>
     <div class="feat"><div class="ic">🌐</div><h3 data-i="f7h">Arabic &amp; English</h3><p data-i="f7p">Full right-to-left layout and Arabic input.</p></div>
     <div class="feat"><div class="ic">📶</div><h3 data-i="f8h">Works offline</h3><p data-i="f8p">No signal in the shop? It syncs later.</p></div>
@@ -210,8 +232,9 @@ const AR = {
   brand:'قائمة تسوق العائلة', openApp:'افتح التطبيق', eyebrow:'مجاني · عربي وإنجليزي',
   h1:'قائمة التسوق التي <em>تتشاركها العائلة</em> كلها.',
   lead:'أضف ما يحتاجه البيت من أي مكان، وعلّم عليه في السوبرماركت. كل جوالات العائلة تتحدّث فورًا — لا رسائل ضائعة ولا شراء مكرر.',
+  navSlides:'الشرائح', slTitle:'العرض التقديمي ودليل الاستخدام', slSub:'تريد الصورة الكاملة؟ ١٨ شريحة تشرح فكرة التطبيق وتمر على كل ميزة خطوة بخطوة.', sl1:'الفكرة وما تكسبه العائلة', sl2:'كيف بُني وكيف يحافظ على الخصوصية', sl3:'دليل من ٨ خطوات بشاشات حقيقية', slView:'عرض الشرائح', slPdf:'تحميل PDF',
   start:'ابدأ قائمة عائلتك', watch:'▶ شاهد العرض', t1:'مجاني', t2:'أي جوال، بدون متجر تطبيقات', t3:'خاص بعائلتك',
-  demoTitle:'شاهده في أقل من دقيقة', demoSub:'إضافة الأغراض، التسوق، السجل، القوائم الإضافية، المشاركة والعربية — التطبيق كله في ٥٣ ثانية.',
+  demoTitle:'شاهده في أقل من دقيقة', demoSub:'إضافة الأغراض مع الوصف، التسوق، السجل، القوائم الإضافية، المشاركة والعربية — التطبيق كله في أقل من دقيقة.',
   howTitle:'جاهز في ثلاث خطوات', howSub:'بدون تحميل أو إعداد. يعمل من المتصفح على آيفون وأندرويد.',
   s1h:'سجّل', s1p:'افتح التطبيق على جوالك، اكتب اسمك وبريدك، ثم اختر «إضافة إلى الشاشة الرئيسية» ليفتح مثل أي تطبيق.',
   s2h:'ادعُ عائلتك', s2p:'أضف زوجتك أو أبناءك أو والديك بالبريد الإلكتروني، واختر هل يستطيع كل شخص التعديل أو العرض فقط.',
@@ -219,7 +242,7 @@ const AR = {
   featTitle:'كل ما تحتاجه قائمة العائلة',
   f1h:'مزامنة فورية', f1p:'التغييرات تظهر على كل الجوالات خلال ثوانٍ.', f2h:'مرتبة حسب الأقسام', f2p:'الأغراض تترتب تلقائيًا حسب أقسام السوبرماركت.',
   f3h:'وضع التسوق', f3p:'أزرار كبيرة للتعليم وشريط تقدّم.', f4h:'سجل تلقائي', f4p:'كل مشوار يُحفظ — كرّره بلمسة واحدة.',
-  f5h:'قوائم متعددة', f5p:'مقاضي، حفلة، صيدلية — كل قائمة مستقلة.', f6h:'صلاحيات العائلة', f6p:'«يمكنه التعديل» أو «عرض فقط» لكل شخص.',
+  f5h:'قوائم وأوصاف', f5p:'قوائم متعددة لكل منها وصف — وملاحظة لكل غرض.', f6h:'صلاحيات العائلة', f6p:'«يمكنه التعديل» أو «عرض فقط» لكل شخص.',
   f7h:'عربي وإنجليزي', f7p:'واجهة كاملة من اليمين لليسار وكتابة بالعربي.', f8h:'يعمل بدون إنترنت', f8p:'لا توجد شبكة في السوق؟ يتزامن لاحقًا.',
   privH:'خصوصية من الأساس', privP:'قوائمك لا يراها إلا أفراد العائلة الذين تدعوهم — لا أحد غيرهم يستطيع فتحها.',
   pv1:'بدون إعلانات أو تتبّع', pv2:'احذف أي شخص في أي وقت', pv3:'تسجيل دخول آمن بالبريد',
