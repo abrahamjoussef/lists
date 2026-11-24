@@ -6,7 +6,7 @@
 <title>Our Shopping List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=15">
+<link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
 <header>
@@ -75,6 +75,7 @@
       <div id="nameWrap"><label for="aName" data-i18n="yourName">Your name</label><input id="aName" autocomplete="name" placeholder="e.g. Sara" data-i18n-ph="namePh"></div>
       <label for="aEmail" data-i18n="email">Email</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
       <label for="aPass" data-i18n="password">Password</label><input id="aPass" type="password" autocomplete="new-password" placeholder="At least 6 characters" data-i18n-ph="passPh">
+      <div id="pass2Wrap"><label for="aPass2" data-i18n="confirmPass">Confirm password</label><input id="aPass2" type="password" autocomplete="new-password" placeholder="Type your password again" data-i18n-ph="confirmPassPh"></div>
       <button class="go" id="aGo" type="submit">Register</button>
       <div class="err" id="aErr" role="alert"></div>
       <div class="switch" id="aSwitch"></div>
@@ -82,6 +83,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 </body>
 </html>
