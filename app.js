@@ -11,7 +11,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=16";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=17";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -473,11 +473,12 @@ $('authForm').addEventListener('submit', async e=>{
 // ---- family: own list + lists shared with me ----
 let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
-let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:''};
+let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0}, mainDateFixed=false;
 const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
-const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||''});
+const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', createdAt:mainInfo.createdAt||0});
+const fmtCreated = ts => ts ? t('createdOn',{date:new Date(ts).toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'})}) : '';
 const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
@@ -509,8 +510,11 @@ function updateTitle(){
 function renderListDesc(){
   const d=$('listDesc'); if(!d) return;
   const l = listId==='main' ? mainEntry() : lists.find(x=>x.id===listId);
-  const txt = l && l.description ? l.description : '';
-  d.textContent = txt; d.classList.toggle('hidden', !txt);
+  const txt = l && l.description ? l.description : '', when = l ? fmtCreated(l.createdAt) : '';
+  d.innerHTML='';
+  if (txt) d.appendChild(el('div','ld-text',txt));
+  if (when) d.appendChild(el('div','ld-date',when));
+  d.classList.toggle('hidden', !txt && !when);
 }
 function renderLists(){
   renderListDesc();
@@ -524,6 +528,7 @@ function renderLists(){
     const b=el('button','ltab'+(on?' on':'')); b.type='button'; b.dataset.list=l.id;
     b.setAttribute('aria-current', on?'true':'false');
     b.append(el('span','em',l.emoji), el('span','ln',l.name));
+    if (l.createdAt) b.title = fmtCreated(l.createdAt);
     b.onclick=()=>{ if(!on) openList(owner, l.id); else if(ed) openListSheet(l); };
     box.appendChild(b);
     if (on && ed){
@@ -557,6 +562,7 @@ function renderListSheet(){
   box.appendChild(el('h3',null,S.edit?t('editListTitle'):t('newListTitle')));
   if(!S.edit) box.appendChild(el('p','sub',t('newListSub')));
   else if(S.edit.id==='main') box.appendChild(el('p','sub',t('editMainHint')));
+  if(S.edit && S.edit.createdAt) box.appendChild(el('p','sub created-on','📅 '+fmtCreated(S.edit.createdAt)));
   const lb=el('label',null,t('listName')); lb.htmlFor='lName'; box.appendChild(lb);
   const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
   inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveList(); } };
@@ -645,7 +651,7 @@ function addToolbar(){
 }
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
-  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:''}; }
+  if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:'', createdAt:0}; }
   owner=o; store('shopOwner', o);
   listId = lid || store('shopList:'+o) || 'main';
   if (listId!=='main' && listsLoaded && !lists.some(l=>l.id===listId)) listId='main';
@@ -657,7 +663,14 @@ function openList(o, lid){
   unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
     const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
-    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120)};
+    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), createdAt:+mv.createdAt||0};
+    // the main list existed before dates were recorded: date it from when the account was created
+    if (!mainInfo.createdAt && o===uid && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
+      mainDateFixed=true;
+      const cu=window._auth && window._auth.currentUser, ts=(cu && Date.parse(cu.metadata && cu.metadata.creationTime)) || Date.now();
+      mainInfo.createdAt=ts;
+      setDoc(doc(fs,'ulists/'+o+'/lists/main'), {createdAt:ts, main:true}, {merge:true}).catch(()=>{});
+    }
     lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), createdAt:+v.createdAt||0}; })
       .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
     for (const l of lists) pendingLists.delete(l.id);
