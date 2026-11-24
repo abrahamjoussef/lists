@@ -209,7 +209,7 @@ video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-
     <div class="feat"><div class="ic">🥬</div><h3 data-i="f2h">Sorted by aisle</h3><p data-i="f2p">Items group themselves by supermarket section.</p></div>
     <div class="feat"><div class="ic">✅</div><h3 data-i="f3h">Shop mode</h3><p data-i="f3p">Big tick targets and a progress bar.</p></div>
     <div class="feat"><div class="ic">🧾</div><h3 data-i="f4h">Automatic history</h3><p data-i="f4p">Every trip is saved — repeat it in one tap.</p></div>
-    <div class="feat"><div class="ic">🎉</div><h3 data-i="f5h">Lists &amp; descriptions</h3><p data-i="f5p">Many lists, each with a description — and notes on every item.</p></div>
+    <div class="feat"><div class="ic">🎉</div><h3 data-i="f5h">Lists &amp; descriptions</h3><p data-i="f5p">Many lists, each with a description and the date and time it was made. Delete any list, even the main one.</p></div>
     <div class="feat"><div class="ic">👨‍👩‍👧</div><h3 data-i="f6h">Family roles</h3><p data-i="f6p">“Can edit” or “View only” for each person.</p></div>
     <div class="feat"><div class="ic">🌐</div><h3 data-i="f7h">Arabic &amp; English</h3><p data-i="f7p">Full right-to-left layout and Arabic input.</p></div>
     <div class="feat"><div class="ic">📶</div><h3 data-i="f8h">Works offline</h3><p data-i="f8p">No signal in the shop? It syncs later.</p></div>
@@ -237,6 +237,7 @@ video,img{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-
     <details><summary data-i="q3">Does it work on iPhone and Android?</summary><p data-i="a3">Yes — any modern phone browser, and on computers too.</p></details>
     <details><summary data-i="q4">Who can see my lists?</summary><p data-i="a4">Only you and the people you invite. You choose whether each person can edit or only view, and you can remove them any time.</p></details>
     <details><summary data-i="q5">What if there’s no signal in the supermarket?</summary><p data-i="a5">Keep ticking. The app saves changes on your phone and syncs them when you are back online.</p></details>
+    <details><summary data-i="q6">Can I delete lists, even the main one?</summary><p data-i="a6">Yes. Tap ✎ on any list, then Delete. Only the list’s owner can do this. You can delete every list and start fresh with “+ Create a list”.</p></details>
   </div>
 </div></section>
 
@@ -271,7 +272,7 @@ const AR = {
   featTitle:'كل ما تحتاجه قائمة العائلة',
   f1h:'مزامنة فورية', f1p:'التغييرات تظهر على كل الجوالات خلال ثوانٍ.', f2h:'مرتبة حسب الأقسام', f2p:'الأغراض تترتب تلقائيًا حسب أقسام السوبرماركت.',
   f3h:'وضع التسوق', f3p:'أزرار كبيرة للتعليم وشريط تقدّم.', f4h:'سجل تلقائي', f4p:'كل مشوار يُحفظ — كرّره بلمسة واحدة.',
-  f5h:'قوائم وأوصاف', f5p:'قوائم متعددة لكل منها وصف — وملاحظة لكل غرض.', f6h:'صلاحيات العائلة', f6p:'«يمكنه التعديل» أو «عرض فقط» لكل شخص.',
+  f5h:'قوائم وأوصاف', f5p:'قوائم متعددة لكل منها وصف وتاريخ ووقت إنشائها. احذف أي قائمة، حتى الرئيسية.', f6h:'صلاحيات العائلة', f6p:'«يمكنه التعديل» أو «عرض فقط» لكل شخص.',
   f7h:'عربي وإنجليزي', f7p:'واجهة كاملة من اليمين لليسار وكتابة بالعربي.', f8h:'يعمل بدون إنترنت', f8p:'لا توجد شبكة في السوق؟ يتزامن لاحقًا.',
   privH:'خصوصية من الأساس', privP:'قوائمك لا يراها إلا أفراد العائلة الذين تدعوهم — لا أحد غيرهم يستطيع فتحها.',
   pv1:'بدون إعلانات أو تتبّع', pv2:'احذف أي شخص في أي وقت', pv3:'تسجيل دخول آمن بالبريد',
@@ -282,6 +283,7 @@ const AR = {
   q3:'هل يعمل على آيفون وأندرويد؟', a3:'نعم — على أي متصفح جوال حديث، وعلى الكمبيوتر أيضًا.',
   q4:'من يستطيع رؤية قوائمي؟', a4:'أنت ومن تدعوهم فقط. تختار لكل شخص التعديل أو العرض فقط، ويمكنك إزالتهم في أي وقت.',
   q5:'ماذا لو لم توجد شبكة في السوبرماركت؟', a5:'استمر في التعليم. التطبيق يحفظ التغييرات على جوالك ويزامنها عند عودة الاتصال.',
+  q6:'هل أستطيع حذف القوائم، حتى الرئيسية؟', a6:'نعم. اضغط ✎ على أي قائمة ثم «حذف». صاحب القائمة فقط يستطيع ذلك. ويمكنك حذف كل القوائم والبدء من جديد بـ«+ أنشئ قائمة».',
   finalH:'جرّبه مع عائلتك هذا الأسبوع', finalP:'سجّل في ٣٠ ثانية، ادعُ عائلتك، واجعل مشوارك القادم من قائمة واحدة مشتركة.',
   share:'شارك هذه الصفحة مع صديق', foot:'قائمة تسوق العائلة · صُنعت بعناية للعائلات', copied:'تم نسخ الرابط ✓'
 };
