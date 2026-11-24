@@ -268,3 +268,6 @@ html[lang=ar] h1{font-size:22px}
 .list-desc .ld-date::before{content:"📅 "}
 .created-on{margin-top:-4px}
 .sheet textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical;min-height:64px}
+.no-lists .nl-title{font-weight:800;color:var(--ink);font-size:16px;margin-bottom:4px}
+.no-lists .nl-text{margin-bottom:16px}
+.no-lists .nl-create{min-height:44px;border-radius:12px;border:1px solid var(--green);cursor:pointer;font-weight:800}
