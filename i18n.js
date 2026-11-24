@@ -8,8 +8,8 @@ const EN = {
   langSwitch: 'عربي',
   loading: 'Loading…',
   tabList: 'List', tabShop: 'Shop', tabHistory: 'History',
-  addPlaceholder: 'Add an item… e.g. 2 milk', add: 'Add', auto: '✨ Auto',
-  editTitle: 'Edit item', name: 'Name', note: 'Note (brand, size…)', optional: 'optional', section: 'Section',
+  addPlaceholder: 'Add an item… e.g. 2 milk - 1 L', add: 'Add', auto: '✨ Auto',
+  editTitle: 'Edit item', name: 'Name', note: 'Description (brand, size, details)', optional: 'optional', descPh: 'e.g. lactose free, 1 L', listDesc: 'Description (optional)', listDescPh: 'e.g. For Friday’s dinner — budget 300 SAR', section: 'Section',
   delete: 'Delete', cancel: 'Cancel', save: 'Save', close: 'Close',
 
   heroTitle: "Welcome to Family Shopping List",
@@ -101,8 +101,8 @@ const AR = {
   langSwitch: 'English',
   loading: 'جارٍ التحميل…',
   tabList: 'القائمة', tabShop: 'التسوق', tabHistory: 'السجل',
-  addPlaceholder: 'أضف غرضًا… مثال: ٢ حليب', add: 'إضافة', auto: '✨ تلقائي',
-  editTitle: 'تعديل الغرض', name: 'الاسم', note: 'ملاحظة (الماركة، الحجم…)', optional: 'اختياري', section: 'القسم',
+  addPlaceholder: 'أضف غرضًا… مثال: ٢ حليب - ١ لتر', add: 'إضافة', auto: '✨ تلقائي',
+  editTitle: 'تعديل الغرض', name: 'الاسم', note: 'الوصف (الماركة، الحجم، التفاصيل)', optional: 'اختياري', descPh: 'مثال: خالي اللاكتوز، ١ لتر', listDesc: 'الوصف (اختياري)', listDescPh: 'مثال: لعشاء يوم الجمعة — الميزانية ٣٠٠ ريال', section: 'القسم',
   delete: 'حذف', cancel: 'إلغاء', save: 'حفظ', close: 'إغلاق',
 
   heroTitle: 'أهلًا بكم في قائمة تسوق العائلة',
