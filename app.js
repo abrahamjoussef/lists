@@ -1,4 +1,4 @@
-// Shopping list app logic
+// Family Lists app logic
 // Firebase project settings (Firebase console → Project settings → Your apps → Web app)
 const firebaseConfig = {
   apiKey: "AIzaSyBme9LUlSJIZ9zogsrJst4THDI9XcTUV84",
@@ -11,8 +11,8 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=20";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=20";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=21";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=21";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -565,7 +565,7 @@ function updateTitle(){
   const op = sharedWithMe.find(x=>x.uid===owner);
   const l = curList();
   if (l) $('title').textContent = l.emoji + ' ' + (owner===uid || !op ? l.name : t('shoppingListName',{list:l.name, name:op.name}));
-  else $('title').textContent = '🛒 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
+  else $('title').textContent = '📋 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
 }
 function renderListDesc(){
   const d=$('listDesc'); if(!d) return;
@@ -685,7 +685,7 @@ function saveList(){
 function deleteList(l){
   if (myRoleOn(owner)!=='owner' || !l) return;
   const o=owner, base=listBase(o,l.id), isMain=l.id==='main';
-  const itemIds=[...items.keys()], tids=tripIds.slice();
+  const itemIds=[...new Set([...items.keys(), ...Object.keys(queues).filter(k=>k.startsWith(base+'items/')).map(k=>k.slice((base+'items/').length))])], tids=tripIds.slice();
   const pending=Object.keys(queues).filter(k=>k.startsWith(base)).map(k=>queues[k]);   // let edits still on their way land first
   closeListSheet();
   if (isMain) mainInfo={...mainInfo, deleted:true}; else lists=lists.filter(x=>x.id!==l.id);
@@ -706,17 +706,78 @@ function deleteList(l){
 function addToolbar(){
   const sw=el('div','switcher'); sw.id='switcher';
   const bar=el('div','toolbar');
-  const out=el('button','chip',t('signOut'));
-  out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
+  // the user button opens the user menu (profile, language, about, sign out)
+  const ub=el('button','chip user-btn'); ub.type='button'; ub.id='userBtn'; ub.setAttribute('aria-haspopup','dialog');
+  ub.onclick=openUserMenu;
   const lg=el('button','chip lang-chip',t('langSwitch')); lg.onclick=()=>setLang(isAr?'en':'ar');
-  const site=el('a','chip site-chip',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
-  bar.append(out, lg, site, el('span','who-am-i',t('hi',{name:me})));
+  bar.append(ub, lg);
   sw.setAttribute('aria-label', t('peopleNav'));
   const lb=el('div','listbar'); lb.id='listbar'; lb.setAttribute('aria-label', t('listsNav'));
   const ld=el('div','list-desc hidden'); ld.id='listDesc';
   const nav=el('nav','navcard'); nav.append(sw, lb, ld);
   $('status').before(nav); $('status').before(bar);
+  renderUserBtn();
 }
+function renderUserBtn(){
+  const ub=$('userBtn'); if(!ub) return;
+  ub.innerHTML='';
+  ub.append(el('span','av',initialsOf(me)), el('span','who-am-i',t('hi',{name:me})), el('span','caret','▾'));
+  ub.setAttribute('aria-label', t('userMenu'));
+}
+// ---- user menu: profile (editable), language, about, sign out ----
+let userMenu=null;
+function closeUserMenu(){ userMenu=null; const s=$('userSheet'); if(s) s.remove(); }
+function openUserMenu(){ userMenu={name:me, err:'', msg:'', busy:false}; renderUserMenu(); }
+function renderUserMenu(){
+  if(!userMenu) return; const U=userMenu;
+  let wrap=$('userSheet');
+  if (wrap){ const i=$('uName'); if(i) U.name=i.value; }
+  else { wrap=el('div','sheet user-sheet'); wrap.id='userSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeUserMenu(); }; document.body.appendChild(wrap); }
+  wrap.innerHTML='';
+  const box=el('div','box'); box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true'); box.setAttribute('aria-label',t('userMenu'));
+  const head=el('div','u-head'); head.append(el('span','av big',initialsOf(me)));
+  const who=el('div'); who.append(el('b',null,me), el('div','sub',myEmail)); head.appendChild(who); box.appendChild(head);
+  box.appendChild(el('h3',null,t('profile')));
+  const lb=el('label',null,t('yourName')); lb.htmlFor='uName'; box.appendChild(lb);
+  const inp=document.createElement('input'); inp.id='uName'; inp.maxLength=40; inp.value=U.name; inp.autocomplete='name';
+  inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveProfile(); } };
+  box.appendChild(inp);
+  const el2=el('label',null,t('email')); box.appendChild(el2);
+  const em=document.createElement('input'); em.id='uEmail'; em.value=myEmail; em.readOnly=true; em.disabled=true; box.appendChild(em);
+  if (U.err) box.appendChild(el('div','lerr',U.err));
+  if (U.msg) box.appendChild(el('div','umsg',U.msg));
+  const save=el('button','btn btn-primary u-save',t('saveProfile')); save.type='button'; save.id='uSave'; save.disabled=U.busy; save.onclick=saveProfile; box.appendChild(save);
+  const menu=el('div','u-menu');
+  const reset=el('button','u-item','🔑 '+t('resetPassword')); reset.type='button'; reset.id='uReset';
+  reset.onclick=async()=>{ try{ await sendPasswordResetEmail(window._auth, myEmail); U.msg=t('pwResetSent',{email:myEmail}); U.err=''; }catch(e){ U.err=t('errSave'); } renderUserMenu(); };
+  const lang=el('button','u-item','🌐 '+t('langSwitch')); lang.type='button'; lang.onclick=()=>setLang(isAr?'en':'ar');
+  const site=el('a','u-item',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
+  const out=el('button','u-item danger','↩ '+t('signOut')); out.type='button'; out.id='uSignOut';
+  out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
+  menu.append(reset, lang, site, out); box.appendChild(menu);
+  const close=el('button','btn u-close',t('close')); close.type='button'; close.onclick=closeUserMenu; box.appendChild(close);
+  wrap.appendChild(box);
+}
+async function saveProfile(){
+  const U=userMenu; if(!U || U.busy) return;
+  const name=($('uName').value||'').trim().replace(/\s+/g,' ').slice(0,40);
+  U.name=name; U.msg='';
+  if(!name){ U.err=t('enterName'); return renderUserMenu(); }
+  if((name.match(/\p{L}/gu)||[]).length<3){ U.err=t('nameShort'); return renderUserMenu(); }
+  if(name===me){ U.err=''; U.msg=t('profileSaved'); return renderUserMenu(); }
+  U.busy=true; U.err=''; renderUserMenu();
+  try{
+    const cu=window._auth && window._auth.currentUser;
+    if (cu) await updateProfile(cu, {displayName:name});
+    await setDoc(doc(fs,'users/'+uid), {name}, {merge:true});
+    if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name}, {merge:true});
+    // the people I share with see my new name
+    for (const fid of Object.keys(myFamily||{})) { try{ await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name}, {merge:true}); }catch(e){} }
+    me=name; names[me]=me;
+    U.busy=false; U.msg=t('profileSaved'); renderUserBtn(); renderSwitcher(); render(); renderUserMenu();
+  }catch(e){ U.busy=false; U.err=t('errSave'); renderUserMenu(); }
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && userMenu) closeUserMenu(); });
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
   if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}; }
