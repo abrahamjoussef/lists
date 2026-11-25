@@ -279,8 +279,8 @@ html[lang=ar] h1{font-size:22px}
 .user-btn .caret{font-size:11px;color:var(--muted)}
 .av{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:800;flex:none}
 .av.big{width:48px;height:48px;font-size:18px}
-.toolbar .lang-chip{margin-left:auto}
-[dir=rtl] .toolbar .lang-chip{margin-left:0;margin-right:auto}
+.toolbar .search-btn{margin-left:auto}
+[dir=rtl] .toolbar .search-btn{margin-left:0;margin-right:auto}
 .user-sheet .box{max-height:92vh;overflow:auto}
 .u-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .u-head b{font-size:17px}
@@ -295,3 +295,29 @@ html[lang=ar] h1{font-size:22px}
 .u-item.danger{color:var(--red);font-weight:700}
 .u-close{width:100%;margin-top:12px;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:800;cursor:pointer}
 @media (prefers-color-scheme: dark){ .umsg{color:#8fe0b6} }
+.acc-lists{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.acc-h{font-size:12.5px;font-weight:800;color:var(--muted);margin-bottom:6px}
+.acc-empty{font-size:13px;color:var(--muted)}
+.acc-row{display:flex;align-items:center;gap:8px;padding:6px 0}
+.acc-ln{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
+.seg-b{border:0;background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;font-weight:700;padding:7px 10px;cursor:pointer;min-height:34px}
+.seg-b+.seg-b{border-inline-start:1px solid var(--line)}
+.seg-b.on{background:var(--green);color:#fff}
+.seg-b[data-role=none].on{background:var(--muted);color:#fff}
+.acc-mail,.fam-mail{display:inline-flex;margin-top:8px;font-size:13.5px;font-weight:700;color:var(--green-d);text-decoration:none}
+.fam-mail{width:100%;justify-content:center}
+.ltab .tag{font-size:10.5px;margin-inline-start:4px;color:var(--muted)}
+@media (prefers-color-scheme: dark){ .acc-mail,.fam-mail{color:#8fe0b6} }
+.listbar .hide{display:none!important}
+.ls-btn{flex:none;min-width:40px;justify-content:center;font-size:15px}
+.lsearch{display:flex;align-items:center;gap:4px;flex:0 0 auto;padding:6px 4px}
+.lsearch input{width:150px;font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.ls-x,.sb-x{border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;min-width:32px;min-height:32px;border-radius:8px}
+.ls-none{align-self:center;font-size:13px;color:var(--muted);padding:0 8px;white-space:nowrap}
+.search-btn{padding:6px 10px}
+.search-btn.on{background:var(--green);border-color:var(--green);color:#fff}
+.searchbar{display:flex;align-items:center;gap:6px;margin:8px 16px 0}
+.searchbar input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.searchbar input:focus,.lsearch input:focus{outline:2px solid var(--green);outline-offset:1px}
+.search-count{text-transform:none}
