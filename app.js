@@ -1,4 +1,4 @@
-// Family Lists app logic
+// Shared Lists app logic
 // Firebase project settings (Firebase console → Project settings → Your apps → Web app)
 const firebaseConfig = {
   apiKey: "AIzaSyBme9LUlSJIZ9zogsrJst4THDI9XcTUV84",
@@ -9,10 +9,10 @@ const firebaseConfig = {
   appId: "1:819867077057:web:47ea1b536de3f39f078740"
 };
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=21";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=21";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=23";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=23";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -101,8 +101,10 @@ function setStatus(msg, warn){ const s=$('status'); s.textContent=msg||''; s.cla
 function localOnly(){ return !db; }
 
 // ---- permissions: can this person change the list they're looking at? ----
-function myRoleOn(o){ if(!o || o===uid) return 'owner'; const p=sharedWithMe.find(x=>x.uid===o); return (p && p.role==='view') ? 'view' : 'edit'; }
-function canEdit(){ return myRoleOn(owner)!=='view'; }
+// access is per list: the owner decides, list by list, who can view or edit it
+function myRoleOn(o, lid){ if(!o || o===uid) return 'owner'; const p=sharedWithMe.find(x=>x.uid===o); const r=p && p.lists ? p.lists[lid===undefined?listId:lid] : null; return r==='edit'||r==='view' ? r : 'none'; }
+function canEdit(){ const r=myRoleOn(owner); return r==='owner' || r==='edit'; }
+const sharesWithMe = p => !!(p && p.lists && Object.keys(p.lists).length);
 function viewOnly(){ setStatus(t('viewOnlyMsg'), true); }
 
 async function addItem(raw){
@@ -278,14 +280,36 @@ function renderNoLists(){
   }
   main.appendChild(e);
 }
+// ---- search ----
+let itemQuery='', listQuery='', listSearchOpen=false;
+// forgiving match: ignores case, Arabic vowel marks and the common letter variants (أ إ آ ا, ة ه, ى ي)
+const normQ = s => normDigits(String(s||'')).toLowerCase().replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').trim();
+const matches = (text, q) => { const n=normQ(text); return normQ(q).split(/\s+/).every(w=>n.includes(w)); };
+function itemMatches(i){ return !itemQuery || matches(i.name+' '+(i.note||''), itemQuery); }
+function renderSearchBar(){
+  const bar=$('itemSearchBar'); if(!bar) return;
+  bar.classList.toggle('hidden', !hasList() || !searchOpen());
+}
+const searchOpen = () => itemSearchOn;
+let itemSearchOn=false;
+function toggleItemSearch(on){
+  itemSearchOn = on===undefined ? !itemSearchOn : on;
+  if (!itemSearchOn){ itemQuery=''; const i=$('itemSearch'); if(i) i.value=''; }
+  const b=$('searchBtn'); if(b){ b.classList.toggle('on', itemSearchOn); b.setAttribute('aria-expanded', itemSearchOn?'true':'false'); }
+  renderSearchBar(); render();
+  if (itemSearchOn) setTimeout(()=>{ const i=$('itemSearch'); if(i) i.focus(); },30);
+}
 function render(){
   if (!hasList()) return renderNoLists();
+  renderSearchBar();
   if ($('catPick').dataset.type!==curType()) renderCatPick();
-  const all = [...items.values()];
+  const every = [...items.values()];
+  const all = itemQuery ? every.filter(itemMatches) : every;
   const todo = all.filter(i=>!i.done), done = all.filter(i=>i.done);
-  $('summary').textContent = all.length ? tw('summary',{todo:todo.length, done:done.length}) : t('nothingYet');
+  const allTodo = every.filter(i=>!i.done), allDone = every.filter(i=>i.done);
+  $('summary').textContent = every.length ? tw('summary',{todo:allTodo.length, done:allDone.length}) : t('nothingYet');
   $('mShop').textContent = tw('tabShop'); $('addInput').placeholder = tw('addPlaceholder');
-  $('bar').style.width = all.length ? (done.length/all.length*100)+'%' : '0';
+  $('bar').style.width = every.length ? (allDone.length/every.length*100)+'%' : '0';
   $('mPlan').classList.toggle('on', mode==='plan');
   $('mShop').classList.toggle('on', mode==='shop');
   $('mHist').classList.toggle('on', mode==='trips');
@@ -296,8 +320,12 @@ function render(){
   const main = $('main'); main.innerHTML=''; main.className = mode==='shop'?'shop':'';
   if (ro){ const v=el('div','viewonly'); v.appendChild(el('b',null,t('viewOnlyTitle'))); v.appendChild(document.createTextNode(t('viewOnlyText',{list:ownerName(owner)}))); main.appendChild(v); }
   if (mode==='trips'){ renderHistory(main); return; }
+  if (itemQuery){
+    main.appendChild(el('div','label search-count', t('searchCount',{n:all.length, q:itemQuery})));
+    if (!all.length){ const e=el('div','empty'); e.innerHTML='<b>🔍</b>'; e.appendChild(document.createTextNode(t('noMatches'))); main.appendChild(e); return; }
+  }
 
-  if (mode==='plan' && !ro){
+  if (mode==='plan' && !ro && !itemQuery){
     const inList = new Set(todo.map(i=>i.name.toLowerCase()));
     const quick = recent.filter(r=>!inList.has(r.name.toLowerCase())).slice(0,15);
     if (quick.length){
@@ -342,7 +370,7 @@ function render(){
       list.forEach(i=>g.appendChild(itemRow(i)));
       main.appendChild(g);
     }
-  } else if (mode==='shop'){
+  } else if (mode==='shop' && !itemQuery){
     const e = el('div','empty'); e.innerHTML='<b>🎉</b>'; e.appendChild(document.createTextNode(tw('allDone')));
     main.appendChild(e);
   }
@@ -353,7 +381,7 @@ function render(){
     done.sort((a,b)=>a.name.localeCompare(b.name, lang)).forEach(i=>g.appendChild(itemRow(i)));
     main.appendChild(g);
     const clr = el('button','clear',t('clearChecked')); clr.onclick=clearDone;
-    if (!ro) main.appendChild(clr);
+    if (!ro && !itemQuery) main.appendChild(clr);
   }
 }
 
@@ -388,9 +416,15 @@ function renderHistory(main){
   stats.append(st(String(trips.filter(x=>x.items.length).length),tw('statTrips')), st(String(thisMonth),t('statMonth')), st(top?top.name:'—',tw('statTop')));
   main.appendChild(stats);
 
-  for (const tr of trips.filter(x=>x.items.length).slice(0,60)){
+  const shownTrips = itemQuery ? trips.map(x=>({...x, items:x.items.filter(itemMatches)})).filter(x=>x.items.length) : trips.filter(x=>x.items.length);
+  if (itemQuery){
+    main.appendChild(el('div','label search-count', t('searchCountHist',{n:shownTrips.length, q:itemQuery})));
+    if (!shownTrips.length){ const e=el('div','empty'); e.innerHTML='<b>🔍</b>'; e.appendChild(document.createTextNode(t('noMatches'))); main.appendChild(e); return; }
+  }
+  for (const tr of shownTrips.slice(0,60)){
     const {day,time} = fmtDate(tr.at);
-    const card = document.createElement('details'); card.className='trip';
+    const open = !!itemQuery;
+    const card = document.createElement('details'); card.className='trip'; if (open) card.open=true;
     const sum = document.createElement('summary');
     const dt = el('div','date'); dt.appendChild(el('b',null,day));
     const who = [...new Set(tr.items.map(i=>i.by).filter(Boolean))].map(n=>n===me?t('you'):n);
@@ -526,7 +560,7 @@ $('authForm').addEventListener('submit', async e=>{
 });
 
 // ---- family: own list + lists shared with me ----
-let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, familyRoles={};
+let sharedLoaded=false, fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, myAccess={};
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
 let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}, mainDateFixed=false;
 const pendingLists = new Set();
@@ -543,14 +577,13 @@ const hasList = () => listId!=='none';
 function ownerName(o){ if(o===uid) return t('myList'); const p=sharedWithMe.find(x=>x.uid===o); return p ? t('listOf',{name:p.name}) : t('list'); }
 function renderSwitcher(){
   const box=$('switcher'); if(!box) return; box.innerHTML='';
-  const all=[{uid, name:me}, ...sharedWithMe.map(p=>({uid:p.uid, name:p.name}))];
+  const all=[{uid, name:me}, ...sharedWithMe.filter(sharesWithMe).map(p=>({uid:p.uid, name:p.name}))];
   for (const p of all){
     const on = p.uid===owner, mine = p.uid===uid;
     const b=el('button','person'+(on?' on':'')); b.type='button'; b.dataset.uid=p.uid;
     b.setAttribute('aria-pressed', on?'true':'false');
     const av=el('span','av',initialsOf(p.name)); av.style.background=avatarColor(p.uid); av.setAttribute('aria-hidden','true');
     b.append(av, el('span','pn', mine ? t('me') : p.name));
-    if (!mine && myRoleOn(p.uid)==='view') b.appendChild(el('span','tag',t('viewOnly')));
     b.onclick=()=>{ if(!on) openList(p.uid); };
     box.appendChild(b);
   }
@@ -576,18 +609,44 @@ function renderListDesc(){
   if (when) d.appendChild(el('div','ld-date',when));
   d.classList.toggle('hidden', !txt && !when);
 }
+function closeListSearch(){ listSearchOpen=false; listQuery=''; renderLists(); }
+function filterListTabs(){
+  const box=$('listbar'); if(!box) return; let n=0;
+  for (const b of box.querySelectorAll('.ltab[data-list]')){
+    const l=allLists().find(x=>x.id===b.dataset.list); const ok=!listQuery || (l && matches(l.name+' '+(l.description||''), listQuery));
+    b.classList.toggle('hide', !ok); if(ok) n++;
+    const nx=b.nextElementSibling; if(nx && nx.id==='editListBtn') nx.classList.toggle('hide', !ok);
+  }
+  const none=box.querySelector('.ls-none'); if(none) none.classList.toggle('hidden', n>0);
+}
 function renderLists(){
   renderListDesc();
   const box=$('listbar'); if(!box) return; box.innerHTML='';
-  const ed = canEdit();
+  const ed = owner===uid;   // only the owner creates, edits or deletes lists
   const all = allLists();
-  if (!ed && (!all.length || !lists.length && !mainCustom())){ box.classList.add('hidden'); return; }
+  if (!ed && !all.length){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
+  // search the lists (shown once there are a few)
+  if (all.length>=3){
+    if (listSearchOpen){
+      const w=el('div','lsearch'); const i=document.createElement('input'); i.id='listSearch'; i.type='text'; i.enterKeyHint='search'; i.value=listQuery;
+      i.placeholder=t('searchLists'); i.setAttribute('aria-label',t('searchLists')); i.autocomplete='off';
+      i.oninput=()=>{ listQuery=i.value; filterListTabs(); };
+      i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); const f=box.querySelector('.ltab[data-list]:not(.hide)'); if(f) f.click(); } if(e.key==='Escape'){ e.preventDefault(); closeListSearch(); } };
+      const x=el('button','ls-x','✕'); x.type='button'; x.setAttribute('aria-label',t('close')); x.onclick=closeListSearch;
+      w.append(i,x); box.appendChild(w);
+    } else {
+      const sb=el('button','ltab ls-btn','🔍'); sb.type='button'; sb.id='listSearchBtn'; sb.setAttribute('aria-label',t('searchLists'));
+      sb.onclick=()=>{ listSearchOpen=true; renderLists(); setTimeout(()=>{ const i=$('listSearch'); if(i) i.focus(); },30); };
+      box.appendChild(sb);
+    }
+  } else { listSearchOpen=false; listQuery=''; }
   for (const l of all){
     const on = l.id===listId;
     const b=el('button','ltab'+(on?' on':'')); b.type='button'; b.dataset.list=l.id;
     b.setAttribute('aria-current', on?'true':'false');
     b.append(el('span','em',l.emoji), el('span','ln',l.name));
+    if (!ed && myRoleOn(owner,l.id)==='view') b.appendChild(el('span','tag',t('viewOnly')));
     if (l.createdAt) b.title = fmtCreated(l.createdAt);
     b.onclick=()=>{ if(!on) openList(owner, l.id); else if(ed) openListSheet(l); };
     box.appendChild(b);
@@ -597,6 +656,7 @@ function renderLists(){
       e.onclick=()=>openListSheet(l); box.appendChild(e);
     }
   }
+  if (listSearchOpen){ box.appendChild(el('span','ls-none hidden',t('noListMatches'))); filterListTabs(); }
   if (ed){ const n=el('button','ltab new',t('newList')); n.type='button'; n.id='newListBtn'; n.onclick=()=>openListSheet(null); box.appendChild(n); }
   const act = box.querySelector('.ltab.on'); if (act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
 }
@@ -606,7 +666,7 @@ const LIST_ICONS = ['🛒','✅','🧳','📝','🎉','💊','🏠','🍖','🧺
 let listSheet=null;
 function closeListSheet(){ listSheet=null; const s=$('listSheet'); if(s) s.remove(); }
 function openListSheet(l){
-  if(!canEdit()) return viewOnly();
+  if(owner!==uid) return viewOnly();
   listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', desc:l?(l.description||''):'', type:l&&TYPES[l.type]?l.type:'shopping', iconTouched:!!l, confirm:false, err:''};
   renderListSheet();
   setTimeout(()=>{ const i=$('lName'); if(i && !l) i.focus(); },150);
@@ -695,6 +755,7 @@ function deleteList(l){
     try{
       await Promise.all(pending);
       // the main list's record is kept (marked deleted) so it doesn't come back on the next visit
+      dropListAccess(l.id);
       if (isMain) await setDoc(doc(fs,'ulists/'+o+'/lists/main'), {deleted:true, deletedAt:Date.now(), main:true}, {merge:true});
       else await deleteDoc(doc(fs,'ulists/'+o+'/lists/'+l.id));
       for (const id of itemIds) await deleteDoc(doc(fs, base+'items/'+id));
@@ -710,12 +771,20 @@ function addToolbar(){
   const ub=el('button','chip user-btn'); ub.type='button'; ub.id='userBtn'; ub.setAttribute('aria-haspopup','dialog');
   ub.onclick=openUserMenu;
   const lg=el('button','chip lang-chip',t('langSwitch')); lg.onclick=()=>setLang(isAr?'en':'ar');
-  bar.append(ub, lg);
+  const sb=el('button','chip search-btn','🔍'); sb.type='button'; sb.id='searchBtn'; sb.setAttribute('aria-label',t('searchItems')); sb.setAttribute('aria-expanded','false');
+  sb.onclick=()=>toggleItemSearch();
+  bar.append(ub, sb, lg);
+  const sr=el('div','searchbar hidden'); sr.id='itemSearchBar';
+  const si=document.createElement('input'); si.id='itemSearch'; si.type='text'; si.enterKeyHint='search'; si.placeholder=t('searchItemsPh'); si.setAttribute('aria-label',t('searchItems')); si.autocomplete='off';
+  si.oninput=()=>{ itemQuery=si.value.trim(); render(); };
+  si.onkeydown=e=>{ if(e.key==='Escape'){ e.preventDefault(); toggleItemSearch(false); } };
+  const sx=el('button','sb-x','✕'); sx.type='button'; sx.setAttribute('aria-label',t('close')); sx.onclick=()=>toggleItemSearch(false);
+  sr.append(si, sx);
   sw.setAttribute('aria-label', t('peopleNav'));
   const lb=el('div','listbar'); lb.id='listbar'; lb.setAttribute('aria-label', t('listsNav'));
   const ld=el('div','list-desc hidden'); ld.id='listDesc';
   const nav=el('nav','navcard'); nav.append(sw, lb, ld);
-  $('status').before(nav); $('status').before(bar);
+  $('status').before(nav); $('status').before(bar); $('status').before(sr);
   renderUserBtn();
 }
 function renderUserBtn(){
@@ -786,24 +855,12 @@ function openList(o, lid){
   if (listsLoaded && (listId==='none' ? allLists().length : !allLists().some(l=>l.id===listId)) && !pendingLists.has(listId)) listId=firstListId();
   store('shopList:'+o, listId);
   items=new Map(); trips=[]; tripIds=[]; recent=[]; setStatus('');
+  if (itemQuery || itemSearchOn) toggleItemSearch(false);
   curBase = hasList() ? listBase(o, listId) : '';
   db = hasList() ? mkDb(fs, curBase) : null;
   renderSwitcher(); renderLists(); render();
-  unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
-    if (o!==owner) return;
-    const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
-    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), type:TYPES[mv.type]?mv.type:'shopping', createdAt:+mv.createdAt||0, deleted:!!mv.deleted};
-    // the main list existed before dates were recorded: date it from when the account was created
-    if (!mainInfo.createdAt && !mainInfo.deleted && o===uid && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
-      mainDateFixed=true;
-      const cu=window._auth && window._auth.currentUser, ts=(cu && Date.parse(cu.metadata && cu.metadata.creationTime)) || Date.now();
-      mainInfo.createdAt=ts;
-      setDoc(doc(fs,'ulists/'+o+'/lists/main'), {createdAt:ts, main:true}, {merge:true}).catch(()=>{});
-    }
-    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), type:TYPES[v.type]?v.type:'shopping', createdAt:+v.createdAt||0}; })
-      .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+  const afterLists = ()=>{
     for (const l of lists) pendingLists.delete(l.id);
-    if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
     if (listsLoaded && !pendingLists.has(listId)){
       const gone = listId==='none' ? allLists().length>0 : !allLists().some(l=>l.id===listId);
       if (gone){
@@ -811,8 +868,46 @@ function openList(o, lid){
         closeListSheet(); openList(o, firstListId()); if (wasReal) setStatus(t('listGone'), true); return;
       }
     }
-    renderLists(); updateTitle();
-  }, ()=>{}));
+    renderLists(); updateTitle(); if (!editing) render(); if (famOpen) renderFamily();
+  };
+  const parseMain = mv => ({name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), type:TYPES[mv.type]?mv.type:'shopping', createdAt:+mv.createdAt||0, deleted:!!mv.deleted});
+  const parseList = (id,v) => ({id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), type:TYPES[v.type]?v.type:'shopping', createdAt:+v.createdAt||0});
+  if (o===uid){
+    unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
+      if (o!==owner) return;
+      const md = snap.docs.find(d=>d.id==='main');
+      mainInfo = parseMain(md ? (md.data()||{}) : {});
+      // the main list existed before dates were recorded: date it from when the account was created
+      if (!mainInfo.createdAt && !mainInfo.deleted && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
+        mainDateFixed=true;
+        const cu=window._auth && window._auth.currentUser, ts=(cu && Date.parse(cu.metadata && cu.metadata.creationTime)) || Date.now();
+        mainInfo.createdAt=ts;
+        setDoc(doc(fs,'ulists/'+o+'/lists/main'), {createdAt:ts, main:true}, {merge:true}).catch(()=>{});
+      }
+      lists = snap.docs.filter(d=>d.id!=='main').map(d=>parseList(d.id, d.data()||{}))
+        .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+      if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
+      afterLists();
+    }, ()=>{}));
+  } else {
+    // someone else's lists: watch only the lists they shared with me, one by one
+    if (!sharedLoaded){ renderLists(); return; }   // wait until I know what they share with me
+    const shared = (sharedWithMe.find(x=>x.uid===o)||{}).lists || {};
+    const ids = Object.keys(shared), metas = {}, seen = new Set();
+    mainInfo = {...mainInfo, deleted: !shared.main};
+    const rebuild = ()=>{
+      if (o!==owner) return;
+      if (shared.main) mainInfo = parseMain(metas.main||{});
+      lists = ids.filter(id=>id!=='main' && metas[id]).map(id=>parseList(id, metas[id]))
+        .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+      listsLoaded = seen.size>=ids.length;
+      afterLists();
+    };
+    if (!ids.length){ listsLoaded=true; rebuild(); }
+    for (const id of ids) unsubs.push(fsSnap(doc(fs,'ulists/'+o+'/lists/'+id), s=>{
+      metas[id] = s.exists() ? (s.data()||{}) : (id==='main' ? {} : null); seen.add(id); rebuild();
+    }, ()=>{ metas[id] = id==='main' ? {deleted:true} : null; seen.add(id); rebuild(); }));
+  }
   if (!hasList()) return;   // no lists: only the list of lists is watched
   const curListAt = listId;
   let reachWarn=false;
@@ -849,7 +944,28 @@ function openList(o, lid){
 }
 
 // ---- family page ----
-let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null, famInviteRole='edit';
+let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null, famInviteRole='edit', famMail=null, myListsCache=null;
+// my own lists, to choose which ones each person can open
+function myOwnLists(){ return owner===uid ? allLists() : (myListsCache||[]); }
+async function loadMyLists(){
+  if (owner===uid) return;
+  try{
+    const snap = await getDocs(collection(fs,'ulists/'+uid+'/lists'));
+    const md = snap.docs.find(d=>d.id==='main'), mv = md ? (md.data()||{}) : {};
+    const out = mv.deleted ? [] : [{id:'main', name:mv.name||t('mainList'), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒'}];
+    for (const d of snap.docs){ if(d.id==='main') continue; const v=d.data()||{}; out.push({id:d.id, name:String(v.name||t('list')), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}); }
+    myListsCache = out.sort((a,b)=>(a.id==='main'?-1:b.id==='main'?1:(a.createdAt||0)-(b.createdAt||0)));
+    if (famOpen) renderFamily();
+  }catch(e){}
+}
+// an email the owner can send from their own mail app to tell someone what they can open
+function mailtoFor(name, email, grants){
+  const app = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const lines = grants.map(g=>'• '+g.emoji+' '+g.name+' — '+(g.role==='view'?t('viewOnly'):t('canEdit')));
+  const subject = t('mailSubject',{name:me});
+  const body = t('mailBody',{name:name||'', me, lists:lines.join('\n'), link:app, email:email||''});
+  return 'mailto:'+encodeURIComponent(email||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
 const ICON = {
   close:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   mail:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
@@ -865,13 +981,13 @@ function avatarColor(seed){ let h=0; for(const ch of String(seed)) h=(h*31+ch.ch
 function initialsOf(name){ return String(name||'?').trim().split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase() || '?'; }
 function famPeople(){
   const map=new Map();
-  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||t('familyMember')), email:String(familyEmails[fid]||''), canEditMine:true, role:familyRoles[fid]==='view'?'view':'edit', sharedWithMe:false});
-  for (const p of sharedWithMe){ const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=true; map.set(p.uid,x); }
+  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||t('familyMember')), email:String(familyEmails[fid]||''), canEditMine:true, access:myAccess[fid]||{}, sharedWithMe:false});
+  for (const p of sharedWithMe){ if(!sharesWithMe(p) && !myFamily[p.uid]) continue; const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false, access:{}}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=sharesWithMe(p); map.set(p.uid,x); }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name, lang));
 }
 function closeFamily(){ famOpen=false; famMsg=''; famConfirm=null; const s=$('famSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', famKeys); }
 function famKeys(e){ if(e.key==='Escape') closeFamily(); }
-function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; famInviteRole='edit'; document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
+function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; famInviteRole='edit'; famMail=null; loadMyLists(); document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
 function renderFamily(msg, ok){
   if(!famOpen) return;
   if(msg!==undefined){ famMsg=msg; famOk=!!ok; }
@@ -894,7 +1010,7 @@ function renderFamily(msg, ok){
   // invite card
   const card=el('section','fam-card');
   card.appendChild(el('h4',null,t('inviteTitle')));
-  card.appendChild(el('p','lead',t('inviteLead')));
+  card.appendChild(el('p','lead',t(owner===uid && hasList() ? 'inviteLeadList' : 'inviteLeadNone',{list:(allLists().find(l=>l.id===listId)||{}).name||''})));
   const roles=el('div','role-pick'); roles.setAttribute('role','radiogroup'); roles.setAttribute('aria-label',t('access'));
   for (const [val,title,desc] of [['edit',t('canEdit'),t('canEditDesc')],['view',t('viewOnly'),t('viewOnlyDesc')]]){
     const opt=document.createElement('button'); opt.type='button'; opt.className='role-opt'+(famInviteRole===val?' on':''); opt.dataset.role=val;
@@ -914,6 +1030,7 @@ function renderFamily(msg, ok){
   form.onsubmit=e=>{ e.preventDefault(); if(!famBusy) addMember(inp.value); };
   card.appendChild(form);
   if(famMsg){ const a=el('div','fam-alert '+(famOk?'ok':'err')); a.setAttribute('role','status'); a.appendChild(iconEl(famOk?'ok':'err')); a.appendChild(el('span','msg',famMsg)); card.appendChild(a); }
+  if(famMail){ const m=el('a','btn btn-soft fam-mail','✉️ '+t('emailThem',{name:famMail.name})); m.id='famMailBtn'; m.href=mailtoFor(famMail.name, famMail.email, famMail.grants); m.target='_blank'; m.rel='noopener'; card.appendChild(m); }
   body.appendChild(card);
 
   // members
@@ -935,9 +1052,32 @@ function renderFamily(msg, ok){
       top.append(av,who); m.appendChild(top);
 
       const bd=el('div','badges');
-      const b1=el('span','badge2'+(p.canEditMine?' on':'')+(p.canEditMine&&p.role==='view'?' view':'')); if(p.canEditMine) b1.appendChild(iconEl(p.role==='view'?'eye':'check')); b1.append(!p.canEditMine?t('bNoAccess'):p.role==='view'?t('bCanView'):t('bCanEdit'));
+      const nAcc=Object.keys(p.access||{}).length;
+      const b1=el('span','badge2'+(nAcc?' on':'')); if(nAcc) b1.appendChild(iconEl('check')); b1.append(nAcc ? t(nAcc===1?'bOneList':'bLists',{n:nAcc}) : t('bNoLists'));
       const b2=el('span','badge2'+(p.sharedWithMe?' on':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.sharedWithMe?t('bShared'):t('bNotShared'));
       bd.append(b1,b2); m.appendChild(bd);
+      // which of my lists this person can open
+      if(p.canEditMine && famConfirm!==p.uid){
+        const mine=myOwnLists();
+        const box=el('div','acc-lists'); box.appendChild(el('div','acc-h',t('theirAccess')));
+        if(!mine.length) box.appendChild(el('div','acc-empty',t('noListsToShare')));
+        for(const l of mine){
+          const cur=(p.access||{})[l.id]||'';
+          const row=el('div','acc-row'); row.dataset.list=l.id;
+          row.appendChild(el('span','acc-ln',l.emoji+' '+l.name));
+          const seg=el('div','seg'); seg.setAttribute('role','radiogroup'); seg.setAttribute('aria-label',t('accessFor',{list:l.name}));
+          for(const [val,lab] of [['',t('accNone')],['view',t('accView')],['edit',t('accEdit')]]){
+            const b=el('button','seg-b'+(cur===val?' on':''),lab); b.type='button'; b.dataset.role=val||'none';
+            b.setAttribute('role','radio'); b.setAttribute('aria-checked',cur===val?'true':'false');
+            b.onclick=()=>{ if(cur!==val) setListAccess(p.uid,p.name,p.email,l,val); };
+            seg.appendChild(b);
+          }
+          row.appendChild(seg); box.appendChild(row);
+        }
+        if(nAcc){ const grants=mine.filter(l=>(p.access||{})[l.id]).map(l=>({name:l.name, emoji:l.emoji, role:p.access[l.id]}));
+          const m2=el('a','acc-mail','✉️ '+t('emailThem',{name:p.name})); m2.href=mailtoFor(p.name,p.email,grants); m2.target='_blank'; m2.rel='noopener'; box.appendChild(m2); }
+        m.appendChild(box);
+      }
 
       if(famConfirm===p.uid){
         const c=el('div','confirm');
@@ -950,7 +1090,6 @@ function renderFamily(msg, ok){
         const acts=el('div','acts');
         if(p.sharedWithMe){ const o=el('button','btn btn-soft',t('openTheirList')); o.type='button'; o.onclick=()=>{ closeFamily(); openList(p.uid); }; acts.appendChild(o); }
         if(!p.canEditMine){ const s=el('button','btn',t('shareMyList')); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email,famInviteRole); acts.appendChild(s); }
-        if(p.canEditMine){ const to=p.role==='view'?'edit':'view'; const ch=el('button','btn', to==='view'?t('makeViewOnly'):t('allowEditing')); ch.type='button'; ch.onclick=()=>setRole(p.uid,p.name,to); acts.appendChild(ch); }
         acts.appendChild(el('span','sp'));
         if(p.canEditMine){ const rm=el('button','btn btn-danger',t('remove')); rm.type='button'; rm.onclick=()=>{ famConfirm=p.uid; renderFamily(); }; acts.appendChild(rm); }
         m.appendChild(acts);
@@ -982,26 +1121,44 @@ async function addMember(email){
     const i=$('famEmail'); if(i) i.value='';
   }catch(e){ famBusy=false; renderFamily(t('fAddFail')); }
 }
+// add someone to my people; if one of my lists is open, they get it straight away
 async function shareWith(fid, fname, femail, role){
   role = role==='view' ? 'view' : 'edit';
+  const l = owner===uid && hasList() ? allLists().find(x=>x.id===listId) : null;
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}, familyRoles:{[fid]:role}}, {merge:true});
-    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, at:Date.now(), role});
-    renderFamily(t(role==='view'?'fSharedView':'fSharedEdit',{name:fname||t('they')}), true);
+    const upd = {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}};
+    if (l) upd.access = {[fid]:{[l.id]:role}};
+    await setDoc(doc(fs,'users/'+uid), upd, {merge:true});
+    const sw = {name:me, email:myEmail, at:Date.now()}; if (l) sw.lists = {[l.id]:role};
+    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), sw, {merge:true});
+    famMail = l ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
+    renderFamily(l ? t(role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}) : t('fAdded',{name:fname||t('they')}), true);
   }catch(e){ renderFamily(t('fShareFail')); }
 }
-async function setRole(fid, fname, role){
+async function setListAccess(fid, fname, femail, l, role){
+  const v = role==='edit'||role==='view' ? role : deleteField();
   try{
-    await setDoc(doc(fs,'users/'+uid), {familyRoles:{[fid]:role}}, {merge:true});
-    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {role}, {merge:true});
-    renderFamily(t(role==='view'?'fRoleView':'fRoleEdit',{name:fname||t('they')}), true);
+    await setDoc(doc(fs,'users/'+uid), {access:{[fid]:{[l.id]:v}}}, {merge:true});
+    await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, lists:{[l.id]:v}}, {merge:true});
+    famMail = role ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
+    renderFamily(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}), true);
   }catch(e){ renderFamily(t('fRoleFail')); }
+}
+// a deleted list is taken out of everyone's access
+async function dropListAccess(lid){
+  for (const [fid,acc] of Object.entries(myAccess||{})){
+    if (!acc || !acc[lid]) continue;
+    try{
+      await setDoc(doc(fs,'users/'+uid), {access:{[fid]:{[lid]:deleteField()}}}, {merge:true});
+      await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {lists:{[lid]:deleteField()}}, {merge:true});
+    }catch(e){}
+  }
 }
 async function removeMember(fid, fname){
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}, familyRoles:{[fid]:deleteField()}}, {merge:true});
+    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}, access:{[fid]:deleteField()}}, {merge:true});
     await deleteDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid));
-    renderFamily(t('fRemoved',{name:fname||t('they')}), true);
+    famMail=null; renderFamily(t('fRemoved',{name:fname||t('they')}), true);
   }catch(e){ renderFamily(t('fRemoveFail')); }
 }
 
@@ -1032,9 +1189,18 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; familyRoles=d.familyRoles||{}; renderSwitcher(); if(famOpen) renderFamily(); }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; myAccess=d.access||{}; renderSwitcher(); if(famOpen) renderFamily(); }, ()=>{});
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
-      sharedWithMe = s.docs.map(d=>({uid:d.id, name:String(d.data().name||t('familyMember')), email:String(d.data().email||''), role:d.data().role==='view'?'view':'edit'}));
+      const key = o => JSON.stringify(((sharedWithMe.find(x=>x.uid===o)||{}).lists)||{});
+      const before = owner && owner!==uid ? key(owner) : null;
+      sharedWithMe = s.docs.map(d=>{ const v=d.data()||{}; const ls={}; for (const [k,r] of Object.entries(v.lists||{})) if(r==='edit'||r==='view') ls[k]=r;
+        return {uid:d.id, name:String(v.name||t('familyMember')), email:String(v.email||''), lists:ls}; });
+      sharedLoaded = true;
+      if (owner && owner!==uid){
+        const p = sharedWithMe.find(x=>x.uid===owner);
+        if (!sharesWithMe(p)){ if (!s.metadata || !s.metadata.fromCache){ openList(uid); setStatus(t('noAccess'), true); } }
+        else if (key(owner)!==before) openList(owner, listId);   // what they share with me changed
+      }
       renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
     }, ()=>{});
     const last = store('shopOwner');
