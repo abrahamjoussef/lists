@@ -271,3 +271,5 @@ html[lang=ar] h1{font-size:22px}
 .no-lists .nl-title{font-weight:800;color:var(--ink);font-size:16px;margin-bottom:4px}
 .no-lists .nl-text{margin-bottom:16px}
 .no-lists .nl-create{min-height:44px;border-radius:12px;border:1px solid var(--green);cursor:pointer;font-weight:800}
+.type-pick .chip{font-weight:700}
+.chips.sug .chip{border-style:dashed}
