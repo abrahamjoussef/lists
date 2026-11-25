@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function ownerDoc(owner) {
+      return get(/databases/$(database)/documents/users/$(owner)).data;
+    }
+    // access is given list by list: users/{owner}.access[memberUid][listId] = 'edit' | 'view'
+    // ('main' is the main list)
+    function roleOn(owner, lid) {
+      return ownerDoc(owner).get('access', {}).get(request.auth.uid, {}).get(lid, '');
+    }
+    function canRead(owner, lid) {
+      return request.auth.uid == owner || roleOn(owner, lid) in ['edit', 'view'];
+    }
+    function canWrite(owner, lid) {
+      return request.auth.uid == owner || roleOn(owner, lid) == 'edit';
+    }
+    // email -> account lookup (only exact-email reads, no browsing)
+    match /emails/{email} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+    }
+    // each person's profile + who they share their list with (and how)
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+      match /sharedWithMe/{fromUid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create, update, delete: if signedIn() && (request.auth.uid == fromUid || request.auth.uid == uid);
+      }
+    }
+    // a list's name/icon/type: only its owner changes it; people it is shared with can read it
+    match /ulists/{owner}/lists/{lid} {
+      allow read: if signedIn() && canRead(owner, lid);
+      allow write: if signedIn() && request.auth.uid == owner;
+    }
+    // items, history and suggestions of an extra list
+    match /ulists/{owner}/lists/{lid}/{rest=**} {
+      allow read: if signedIn() && canRead(owner, lid);
+      allow write: if signedIn() && canWrite(owner, lid);
+    }
+    // items, history and suggestions of the main list
+    match /ulists/{owner}/{coll}/{rest=**} {
+      allow read: if signedIn() && coll != 'lists' && canRead(owner, 'main');
+      allow write: if signedIn() && coll != 'lists' && canWrite(owner, 'main');
+    }
+  }
+}
