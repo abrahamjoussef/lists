@@ -11,7 +11,8 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=19";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=20";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=20";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -28,7 +29,15 @@ const CATS = [
   {id:'other', label:'Other', e:'📦'},
 ];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
-const catLabel = c => t('cat_'+c.id);
+// ---- list types: each type has its own sections and suggestions ----
+const tl = (key, vars) => { const s=(TYPE_TEXT[lang]||TYPE_TEXT.en)[key] ?? TYPE_TEXT.en[key]; return s==null ? t(key,vars) : (vars ? s.replace(/\{(\w+)\}/g,(_,k)=>vars[k]??'') : s); };
+// a word that depends on the type: summary_todo, tabShop_packing… falling back to the shopping wording
+const tw = (key, vars) => { const ty=curType(); if (ty!=='shopping'){ const k=key+'_'+ty; if ((TYPE_TEXT.en)[k]!=null) return tl(k,vars); } return t(key,vars); };
+const curType = () => { const l=allLists().find(x=>x.id===listId); return l && TYPES[l.type] ? l.type : 'shopping'; };
+const curCats = () => curType()==='shopping' ? CATS : TYPES[curType()].cats;
+const catOf = id => curCats().find(c=>c.id===id) || curCats().find(c=>c.id==='other');
+const catLabel = c => curType()==='shopping' ? t('cat_'+c.id) : (curType()==='general' ? tl('cat_general_other') : (c.id==='other' ? t('cat_other') : tl('cat_'+c.id)));
+const typeSuggestions = () => { const ty=curType(); const src = ty==='shopping' ? SHOP_SUG : (TYPES[ty].sug||{}); return src[lang] || src.en || []; };
 const KEYWORDS = {
   produce:'apple banana orange lemon lime tomato potato onion garlic cucumber lettuce carrot pepper spinach parsley mint coriander cilantro fruit veg vegetable grape mango avocado zucchini eggplant date dates berries strawberr watermelon melon herbs ginger',
   dairy:'milk laban yogurt yoghurt cheese butter cream egg eggs labneh halloumi feta',
@@ -43,6 +52,8 @@ const KEYWORDS = {
   baby:'diaper diapers nappies wipes formula baby',
 };
 function guessCat(name){
+  const ty = curType();
+  if (ty!=='shopping') return guessTypeCat(name, TYPES[ty]);
   const w = name.toLowerCase();
   for (const [cat, list] of Object.entries(KEYWORDS)){
     for (const k of list.split(' ')) if (k && new RegExp('\\b'+k).test(w)) return cat;
@@ -52,6 +63,14 @@ function guessCat(name){
   for (const [cat, list] of Object.entries(AR_KEYWORDS)){
     for (const k of list.split(' ')) if (k && words.some(x=>x.startsWith(k.replace(/^ال/,'')))) return cat;
   }
+  return 'other';
+}
+
+function guessTypeCat(name, T){
+  const w = name.toLowerCase(), kw=T.kw||{};
+  for (const [cat, list] of Object.entries(kw.en||{})) for (const k of list.split(' ')) if (k && new RegExp('\\b'+k).test(w)) return cat;
+  const words = w.split(/\s+/).map(x=>x.replace(/^(و|ب|ل)?ال/, ''));
+  for (const [cat, list] of Object.entries(kw.ar||{})) for (const k of list.split(' ')) if (k && words.some(x=>x.startsWith(k.replace(/^ال/,'')))) return cat;
   return 'other';
 }
 
@@ -187,7 +206,7 @@ function openEdit(id){
 }
 function renderEditCats(){
   const box=$('eCats'); box.innerHTML='';
-  for (const c of CATS){
+  for (const c of curCats()){
     const b=document.createElement('button'); b.type='button';
     b.className='chip'+(c.id===editCat?' on':''); b.textContent=c.e+' '+catLabel(c);
     b.onclick=()=>{editCat=c.id; renderEditCats();};
@@ -233,7 +252,7 @@ function itemRow(it){
   if (meta.childNodes.length) body.appendChild(meta);
   if (!ro) body.onclick = ()=> mode==='shop' ? toggle(it.id) : openEdit(it.id);
   row.append(chk, body);
-  if (mode==='plan' && !it.done && !ro){
+  if (mode==='plan' && !it.done && !ro && TYPES[curType()].qty){
     const q = el('div','qty');
     const minus = el('button',null,'−'); minus.onclick=()=>changeQty(it.id,it.qty-1);
     const plus = el('button',null,'+'); plus.onclick=()=>changeQty(it.id,it.qty+1);
@@ -261,9 +280,11 @@ function renderNoLists(){
 }
 function render(){
   if (!hasList()) return renderNoLists();
+  if ($('catPick').dataset.type!==curType()) renderCatPick();
   const all = [...items.values()];
   const todo = all.filter(i=>!i.done), done = all.filter(i=>i.done);
-  $('summary').textContent = all.length ? t('summary',{todo:todo.length, done:done.length}) : t('nothingYet');
+  $('summary').textContent = all.length ? tw('summary',{todo:todo.length, done:done.length}) : t('nothingYet');
+  $('mShop').textContent = tw('tabShop'); $('addInput').placeholder = tw('addPlaceholder');
   $('bar').style.width = all.length ? (done.length/all.length*100)+'%' : '0';
   $('mPlan').classList.toggle('on', mode==='plan');
   $('mShop').classList.toggle('on', mode==='shop');
@@ -289,6 +310,19 @@ function render(){
       }
       main.appendChild(chips);
     }
+    // suggested items for this kind of list (hidden once the list is well under way)
+    const shown = new Set([...inList, ...quick.map(r=>r.name.toLowerCase())]);
+    const sug = typeSuggestions().filter(([n])=>!shown.has(n.toLowerCase())).slice(0,10);
+    if (sug.length && todo.length<8){
+      main.appendChild(el('div','label',tl('suggestions')));
+      const chips = el('div','chips sug');
+      for (const [n,c] of sug){
+        const b=el('button','chip','+ '+n);
+        b.onclick=()=>{ const keep=pickedCat; pickedCat=c; addItem(n); pickedCat=keep; };
+        chips.appendChild(b);
+      }
+      main.appendChild(chips);
+    }
   }
 
   if (!all.length){
@@ -298,8 +332,9 @@ function render(){
   }
 
   if (todo.length){
-    for (const c of CATS){
-      const list = todo.filter(i=>(CAT[i.cat]?i.cat:'other')===c.id).sort((a,b)=>a.name.localeCompare(b.name, lang));
+    const cats=curCats(), known=new Set(cats.map(c=>c.id));
+    for (const c of cats){
+      const list = todo.filter(i=>(known.has(i.cat)?i.cat:'other')===c.id).sort((a,b)=>a.name.localeCompare(b.name, lang));
       if (!list.length) continue;
       const g = el('div','group');
       const gh = el('div','gh', c.e+' '+catLabel(c)); gh.appendChild(el('span','n',String(list.length)));
@@ -308,12 +343,12 @@ function render(){
       main.appendChild(g);
     }
   } else if (mode==='shop'){
-    const e = el('div','empty'); e.innerHTML='<b>🎉</b>'; e.appendChild(document.createTextNode(t('allDone')));
+    const e = el('div','empty'); e.innerHTML='<b>🎉</b>'; e.appendChild(document.createTextNode(tw('allDone')));
     main.appendChild(e);
   }
 
   if (done.length){
-    main.appendChild(el('div','label',t('inCart',{n:done.length})));
+    main.appendChild(el('div','label',tw('inCart',{n:done.length})));
     const g = el('div','group');
     done.sort((a,b)=>a.name.localeCompare(b.name, lang)).forEach(i=>g.appendChild(itemRow(i)));
     main.appendChild(g);
@@ -350,7 +385,7 @@ function renderHistory(main){
   const top = Object.values(counts).sort((a,b)=>b.n-a.n)[0];
   const stats = el('div','stats');
   const st=(v,l)=>{ const d=el('div','stat'); d.appendChild(el('b',null,v)); d.appendChild(el('span',null,l)); return d; };
-  stats.append(st(String(trips.filter(x=>x.items.length).length),t('statTrips')), st(String(thisMonth),t('statMonth')), st(top?top.name:'—',t('statTop')));
+  stats.append(st(String(trips.filter(x=>x.items.length).length),tw('statTrips')), st(String(thisMonth),t('statMonth')), st(top?top.name:'—',tw('statTop')));
   main.appendChild(stats);
 
   for (const tr of trips.filter(x=>x.items.length).slice(0,60)){
@@ -365,7 +400,7 @@ function renderHistory(main){
     const rows = el('div','rows');
     for (const i of tr.items){
       const r = el('div','hrow');
-      r.appendChild(el('span',null,(CAT[i.cat]||CAT.other).e));
+      r.appendChild(el('span',null,catOf(i.cat).e));
       const n = el('span','n', i.name + (i.qty>1?' ×'+i.qty:''));
       if (i.note){ n.appendChild(document.createElement('br')); n.appendChild(el('small',null,i.note)); }
       r.appendChild(n);
@@ -381,10 +416,12 @@ function renderHistory(main){
 }
 
 function renderCatPick(){
-  const box=$('catPick'); box.innerHTML='';
+  const box=$('catPick'), cats=curCats(), ty=curType(); box.innerHTML='';
+  if (box.dataset.type!==ty){ box.dataset.type=ty; if (!cats.some(c=>c.id===pickedCat)) pickedCat=null; }
+  if (cats.length<2){ box.classList.add('hidden'); return; } box.classList.remove('hidden');
   const auto=el('button','chip'+(pickedCat===null?' on':''),t('auto'));
   auto.onclick=()=>{pickedCat=null; renderCatPick();}; box.appendChild(auto);
-  for (const c of CATS){
+  for (const c of cats){
     const b=el('button','chip'+(pickedCat===c.id?' on':''), c.e+' '+catLabel(c));
     b.type='button'; b.onclick=()=>{pickedCat=c.id; renderCatPick();};
     box.appendChild(b);
@@ -494,8 +531,8 @@ let fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFam
 let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}, mainDateFixed=false;
 const pendingLists = new Set();
 const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
-const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒');
-const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', createdAt:mainInfo.createdAt||0});
+const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒' || (mainInfo.type && mainInfo.type!=='shopping'));
+const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', type:mainInfo.type||'shopping', createdAt:mainInfo.createdAt||0});
 const fmtCreated = ts => { if(!ts) return ''; const d=new Date(ts); return t('createdOn',{date:d.toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'}), time:d.toLocaleTimeString(dateLocale,{hour:'numeric', minute:'2-digit'})}); };
 const curList = () => listId==='main' ? (mainCustom() ? mainEntry() : null) : (lists.find(l=>l.id===listId) || null);
 // the main list can be deleted too; 'none' means the person has no lists at all
@@ -565,12 +602,12 @@ function renderLists(){
 }
 
 // ---- create / rename / delete a list ----
-const LIST_ICONS = ['🛒','🎉','💊','🏠','🍖','🧺','🎁','🌙','🏖️','👶','🧹','📦'];
+const LIST_ICONS = ['🛒','✅','🧳','📝','🎉','💊','🏠','🍖','🧺','🎁','🌙','🏖️','👶','🧹','📦'];
 let listSheet=null;
 function closeListSheet(){ listSheet=null; const s=$('listSheet'); if(s) s.remove(); }
 function openListSheet(l){
   if(!canEdit()) return viewOnly();
-  listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', desc:l?(l.description||''):'', confirm:false, err:''};
+  listSheet={edit:l, name:l?l.name:'', emoji:l?l.emoji:'🛒', desc:l?(l.description||''):'', type:l&&TYPES[l.type]?l.type:'shopping', iconTouched:!!l, confirm:false, err:''};
   renderListSheet();
   setTimeout(()=>{ const i=$('lName'); if(i && !l) i.focus(); },150);
 }
@@ -585,6 +622,11 @@ function renderListSheet(){
   box.appendChild(el('h3',null,S.edit?t('editListTitle'):t('newListTitle')));
   if(!S.edit) box.appendChild(el('p','sub',t('newListSub')));
   if(S.edit && S.edit.createdAt) box.appendChild(el('p','sub created-on','📅 '+fmtCreated(S.edit.createdAt)));
+  box.appendChild(el('label',null,tl('listType')));
+  const types=el('div','chips type-pick');
+  for (const ty of TYPE_IDS){ const b=el('button','chip'+(ty===S.type?' on':''),TYPES[ty].e+' '+tl('type_'+ty)); b.type='button'; b.dataset.type=ty;
+    b.onclick=()=>{ S.type=ty; if(!S.iconTouched) S.emoji=TYPES[ty].icon; renderListSheet(); }; types.appendChild(b); }
+  box.appendChild(types);
   const lb=el('label',null,t('listName')); lb.htmlFor='lName'; box.appendChild(lb);
   const inp=document.createElement('input'); inp.id='lName'; inp.maxLength=40; inp.value=S.name; inp.placeholder=t('listNamePh'); inp.autocomplete='off'; inp.enterKeyHint='done';
   inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); saveList(); } };
@@ -594,7 +636,7 @@ function renderListSheet(){
   box.appendChild(ta);
   box.appendChild(el('label',null,t('listIcon')));
   const icons=el('div','chips icon-pick');
-  for (const ic of LIST_ICONS){ const b=el('button','chip'+(ic===S.emoji?' on':''),ic); b.type='button'; b.onclick=()=>{ S.emoji=ic; renderListSheet(); }; icons.appendChild(b); }
+  for (const ic of LIST_ICONS){ const b=el('button','chip'+(ic===S.emoji?' on':''),ic); b.type='button'; b.onclick=()=>{ S.emoji=ic; S.iconTouched=true; renderListSheet(); }; icons.appendChild(b); }
   box.appendChild(icons);
   if (S.err) box.appendChild(el('div','lerr',S.err));
   if (S.confirm){
@@ -620,18 +662,18 @@ function saveList(){
   const o=owner;
   if (S.edit && S.edit.id==='main'){
     const stored = (name===t('mainList') || name===mainEntry().name && !mainInfo.name) ? '' : name;
-    mainInfo={name:stored, emoji:S.emoji, description};
-    setDoc(doc(fs,'ulists/'+o+'/lists/main'), {name:stored, emoji:S.emoji, description, main:true}, {merge:true}).catch(handleWriteError);
-    closeListSheet(); renderLists(); updateTitle(); return;
+    mainInfo={...mainInfo, name:stored, emoji:S.emoji, description, type:S.type};
+    setDoc(doc(fs,'ulists/'+o+'/lists/main'), {name:stored, emoji:S.emoji, description, type:S.type, main:true}, {merge:true}).catch(handleWriteError);
+    closeListSheet(); renderLists(); updateTitle(); renderCatPick(); render(); return;
   }
   if (S.edit){
     const id=S.edit.id;
-    lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji,description}:l);
-    setDoc(doc(fs,'ulists/'+o+'/lists/'+id), {name, emoji:S.emoji, description}, {merge:true}).catch(handleWriteError);
-    closeListSheet(); renderLists(); updateTitle(); return;
+    lists=lists.map(l=>l.id===id?{...l,name,emoji:S.emoji,description,type:S.type}:l);
+    setDoc(doc(fs,'ulists/'+o+'/lists/'+id), {name, emoji:S.emoji, description, type:S.type}, {merge:true}).catch(handleWriteError);
+    closeListSheet(); renderLists(); updateTitle(); renderCatPick(); render(); return;
   }
   const ref=doc(collection(fs,'ulists/'+o+'/lists'));
-  const data={name, emoji:S.emoji, description, createdAt:Date.now(), createdBy:me||null};
+  const data={name, emoji:S.emoji, description, type:S.type, createdAt:Date.now(), createdBy:me||null};
   pendingLists.add(ref.id);
   setDoc(ref, data).catch(err=>{ pendingLists.delete(ref.id); handleWriteError(err); });
   lists=[...lists,{id:ref.id,...data}];
@@ -689,7 +731,7 @@ function openList(o, lid){
   unsubs.push(fsSnap(collection(fs,'ulists/'+o+'/lists'), snap=>{
     if (o!==owner) return;
     const md = snap.docs.find(d=>d.id==='main'); const mv = md ? (md.data()||{}) : {};
-    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), createdAt:+mv.createdAt||0, deleted:!!mv.deleted};
+    mainInfo = {name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), type:TYPES[mv.type]?mv.type:'shopping', createdAt:+mv.createdAt||0, deleted:!!mv.deleted};
     // the main list existed before dates were recorded: date it from when the account was created
     if (!mainInfo.createdAt && !mainInfo.deleted && o===uid && !mainDateFixed && (!snap.metadata || !snap.metadata.fromCache)){
       mainDateFixed=true;
@@ -697,7 +739,7 @@ function openList(o, lid){
       mainInfo.createdAt=ts;
       setDoc(doc(fs,'ulists/'+o+'/lists/main'), {createdAt:ts, main:true}, {merge:true}).catch(()=>{});
     }
-    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), createdAt:+v.createdAt||0}; })
+    lists = snap.docs.filter(d=>d.id!=='main').map(d=>{ const v=d.data()||{}; return {id:d.id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), type:TYPES[v.type]?v.type:'shopping', createdAt:+v.createdAt||0}; })
       .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
     for (const l of lists) pendingLists.delete(l.id);
     if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
@@ -717,7 +759,7 @@ function openList(o, lid){
   unsubs.push(db.collection('items').onSnapshot(snap=>{
     if (o!==owner || listId!==curListAt) return;
     if (!snap.metadata.fromCache){ clearTimeout(timer); if(reachWarn){ reachWarn=false; setStatus(''); } }
-    items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:CAT[v.cat]?v.cat:'other', note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, doneAt:+v.doneAt||null, createdAt:+v.createdAt||0}]; }));
+    items = new Map(snap.docs.map(d=>{ const v=d.data()||{}; return [d.id, {id:d.id, name:String(v.name||'Item'), qty:Math.max(1,+v.qty||1), cat:String(v.cat||'other'), note:String(v.note||''), done:!!v.done, addedBy:v.addedBy?String(v.addedBy):null, doneBy:v.doneBy?String(v.doneBy):null, doneAt:+v.doneAt||null, createdAt:+v.createdAt||0}]; }));
     if (!snap.metadata.fromCache) autoClearOld();
     for (const it of items.values()){ if(it.addedBy) names[it.addedBy]=it.addedBy; if(it.doneBy) names[it.doneBy]=it.doneBy; }
     if (!editing) render();
@@ -730,7 +772,7 @@ function openList(o, lid){
     tripIds = snap.docs.map(d=>d.id);
     trips = snap.docs.map(d=>{ const v=d.data()||{};
       const raw = Array.isArray(v.items) ? v.items.map((i,n)=>[String(n),i]) : Object.entries(v.items||{});
-      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:CAT[i.cat]?i.cat:'other', note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
+      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:String(i.cat||'other'), note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
         .sort((a,b)=>a.at-b.at);
       const last = list.reduce((m,i)=>Math.max(m,i.at), 0) || +v.at || 0;
       return {id:d.id, at:last, items:list}; })
@@ -740,7 +782,7 @@ function openList(o, lid){
   unsubs.push(db.doc('meta/recent').onSnapshot(snap=>{
     if (o!==owner || myList!==listId) return;
     const v = snap.exists ? snap.data() : null;
-    recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:CAT[r.cat]?r.cat:'other'})).slice(0,30) : [];
+    recent = (v && Array.isArray(v.items)) ? v.items.filter(r=>r && r.name).map(r=>({name:String(r.name), cat:String(r.cat||'other')})).slice(0,30) : [];
     if (!editing) render();
   }, ()=>{}));
 }
