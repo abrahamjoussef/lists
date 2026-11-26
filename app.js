@@ -11,14 +11,14 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=27";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=27";
-import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=27";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=28";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=28";
+import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=28";
 applyStatic();
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 // ---- list types: each type has its own sections and suggestions ----
 const tl = (key, vars) => { const s=(TYPE_TEXT[lang]||TYPE_TEXT.en)[key] ?? TYPE_TEXT.en[key]; return s==null ? t(key,vars) : (vars ? s.replace(/\{(\w+)\}/g,(_,k)=>vars[k]??'') : s); };
-// a word that depends on the type: summary_todo, tabShop_packing… falling back to the shopping wording
+// a word that depends on the type: summary_todo, tabTick_packing… falling back to the shopping wording
 const tw = (key, vars) => { const ty=curType(); if (ty!=='shopping'){ const k=key+'_'+ty; if ((TYPE_TEXT.en)[k]!=null) return tl(k,vars); } return t(key,vars); };
 const curType = () => { const l=allLists().find(x=>x.id===listId); return l && TYPES[l.type] ? l.type : 'shopping'; };
 const curCats = () => curType()==='shopping' ? CATS : TYPES[curType()].cats;
@@ -33,7 +33,7 @@ const names = {}; // id -> display name
 let editing=null, editCat=null, trips=[];
 const $ = id=>document.getElementById(id);
 
-try{ mode = localStorage.getItem('shopMode')||'plan'; }catch(e){}
+try{ mode = localStorage.getItem('listsMode')||'plan'; if (mode==='shop') mode='tick'; }catch(e){}
 
 // ---- writes: one at a time per doc ----
 const queues = {};
@@ -185,14 +185,14 @@ function itemRow(it){
   chk.onclick=()=>toggle(it.id);
   const body = el('div','body');
   const nm = el('div','name'); nm.textContent = it.name;
-  if (it.qty>1 && mode==='shop'){ nm.append(' '); nm.appendChild(el('span','badge','×'+it.qty)); }
+  if (it.qty>1 && mode==='tick'){ nm.append(' '); nm.appendChild(el('span','badge','×'+it.qty)); }
   body.appendChild(nm);
   if (it.note) body.appendChild(el('div','desc',it.note));
   const meta = el('div','meta');
   if (mode==='plan' && it.addedBy && names[it.addedBy]) { const w=el('span','who',initials(it.addedBy)); w.title=t('addedBy',{name:names[it.addedBy]}); meta.appendChild(w); }
   if (it.done && it.doneBy && names[it.doneBy]) meta.appendChild(el('span',null,'✓ '+(it.doneBy===me?t('you'):names[it.doneBy].split(' ')[0])));
   if (meta.childNodes.length) body.appendChild(meta);
-  if (!ro) body.onclick = ()=> mode==='shop' ? toggle(it.id) : openEdit(it.id);
+  if (!ro) body.onclick = ()=> mode==='tick' ? toggle(it.id) : openEdit(it.id);
   row.append(chk, body);
   if (mode==='plan' && !it.done && !ro && TYPES[curType()].qty){
     const q = el('div','qty');
@@ -293,16 +293,16 @@ function render(){
   const todo = all.filter(i=>!i.done), done = all.filter(i=>i.done);
   const allTodo = every.filter(i=>!i.done), allDone = every.filter(i=>i.done);
   $('summary').textContent = every.length ? tw('summary',{todo:allTodo.length, done:allDone.length}) : t('nothingYet');
-  $('mShop').textContent = tw('tabShop'); $('addInput').placeholder = tw('addPlaceholder');
+  $('mTick').textContent = tw('tabTick'); $('addInput').placeholder = tw('addPlaceholder');
   $('bar').style.width = every.length ? (allDone.length/every.length*100)+'%' : '0';
   $('mPlan').classList.toggle('on', mode==='plan');
-  $('mShop').classList.toggle('on', mode==='shop');
+  $('mTick').classList.toggle('on', mode==='tick');
   $('mHist').classList.toggle('on', mode==='trips');
   const ro = !canEdit();
   $('addbar').classList.toggle('hidden', mode!=='plan' || ro);
   document.body.style.paddingBottom = (mode!=='plan' || ro) ? 'calc(env(safe-area-inset-bottom) + 24px)' : '';
 
-  const main = $('main'); main.innerHTML=''; main.className = mode==='shop'?'shop':'';
+  const main = $('main'); main.innerHTML=''; main.className = mode==='tick'?'tick':'';
   if (ro){ const v=el('div','viewonly'); v.appendChild(el('b',null,t('viewOnlyTitle'))); v.appendChild(document.createTextNode(t('viewOnlyText',{list:ownerName(owner)}))); main.appendChild(v); }
   if (mode==='trips'){ renderHistory(main); return; }
   if (itemQuery){
@@ -341,7 +341,7 @@ function render(){
 
   if (!all.length){
     const e = el('div','empty'); e.innerHTML='<b>🧺</b>';
-    e.appendChild(document.createTextNode(ro ? t('emptyRo') : mode==='shop' ? t('emptyShop') : t('emptyPlan')));
+    e.appendChild(document.createTextNode(ro ? t('emptyRo') : mode==='tick' ? t('emptyTick') : t('emptyPlan')));
     main.appendChild(e); return;
   }
 
@@ -353,7 +353,7 @@ function render(){
       list.forEach(i=>g.appendChild(itemRow(i)));
       main.appendChild(g);
     }
-  } else if (mode==='shop' && !itemQuery){
+  } else if (mode==='tick' && !itemQuery){
     const e = el('div','empty'); e.innerHTML='<b>🎉</b>'; e.appendChild(document.createTextNode(tw('allDone')));
     main.appendChild(e);
   }
@@ -426,7 +426,7 @@ function renderHistory(main){
       rows.appendChild(r);
     }
     const again = el('button','again',t('addAll',{n:tr.items.length}));
-    again.onclick=()=>{ readd(tr.items); mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render(); };
+    again.onclick=()=>{ readd(tr.items); mode='plan'; try{localStorage.setItem('listsMode',mode)}catch(e){} render(); };
     if (canEdit()) rows.appendChild(again);
     card.appendChild(rows);
     main.appendChild(card);
@@ -447,8 +447,8 @@ function renderCatPick(){
 }
 
 $('addForm').addEventListener('submit', e=>{ e.preventDefault(); const v=$('addInput').value; $('addInput').value=''; addItem(v); pickedCat=null; renderCatPick(); $('addInput').focus(); });
-$('mPlan').onclick=()=>{mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
-$('mShop').onclick=()=>{mode='shop'; try{localStorage.setItem('shopMode',mode)}catch(e){} render();};
+$('mPlan').onclick=()=>{mode='plan'; try{localStorage.setItem('listsMode',mode)}catch(e){} render();};
+$('mTick').onclick=()=>{mode='tick'; try{localStorage.setItem('listsMode',mode)}catch(e){} render();};
 $('mHist').onclick=()=>{mode='trips'; render();};
 
 
@@ -515,7 +515,7 @@ function authMsg(e){
 // invited: the email from an invite link (?invite=name@example.com), or '' when not invited
 function showLanding(invited){
   $('inviteNote').classList.toggle('hidden', !invited);
-  setAuthMode(store('shopRegistered') && !invited ? 'signin' : 'register');
+  setAuthMode(store('listsRegistered') && !invited ? 'signin' : 'register');
   if (invited && !$('aEmail').value) $('aEmail').value = invited;
   $('auth').classList.remove('hidden');
 }
@@ -540,13 +540,13 @@ $('authForm').addEventListener('submit', async e=>{
     } else {
       await signInWithEmailAndPassword(auth, email, pass);
     }
-    store('shopRegistered','1');
+    store('listsRegistered','1');
   }catch(err){ window._pendingName = null; $('aErr').textContent=authMsg(err); }
   $('aGo').disabled=false;
 });
 
-// ---- family: own list + lists shared with me ----
-let sharedLoaded=false, fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, myAccess={}, myInvites={};
+// ---- people: own list + lists shared with me ----
+let sharedLoaded=false, fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myMembers={}, memberEmails={}, myAccess={}, myInvites={};
 // what others share with me = their sharedWithMe docs + invites sent to my email before I had an account
 let swDocs=[], invDocs=[], swLoaded=false, invLoaded=false, swCache=false, invCache=false, openInvite=false;
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
@@ -575,17 +575,17 @@ function renderSwitcher(){
     box.appendChild(b);
   }
   box.appendChild(el('span','grow'));
-  const fam=el('button','person fam'); fam.type='button'; fam.id='famBtn'; fam.setAttribute('aria-haspopup','dialog'); fam.setAttribute('aria-label', t('familyBtn'));
-  const ic=el('span','av'); ic.innerHTML=ICON.people; fam.append(ic, el('span','pn',t('familyBtn')));
-  const n=famPeople().length; if(n) fam.appendChild(el('span','count',String(n)));
-  fam.onclick=openFamily; box.appendChild(fam);
+  const share=el('button','person share'); share.type='button'; share.id='shareBtn'; share.setAttribute('aria-haspopup','dialog'); share.setAttribute('aria-label', t('sharingBtn'));
+  const ic=el('span','av'); ic.innerHTML=ICON.people; share.append(ic, el('span','pn',t('sharingBtn')));
+  const n=sharePeople().length; if(n) share.appendChild(el('span','count',String(n)));
+  share.onclick=openSharing; box.appendChild(share);
   updateTitle();
 }
 function updateTitle(){
   const op = sharedWithMe.find(x=>x.uid===owner);
   const l = curList();
-  if (l) $('title').textContent = l.emoji + ' ' + (owner===uid || !op ? l.name : t('shoppingListName',{list:l.name, name:op.name}));
-  else $('title').textContent = '📋 ' + (owner===uid || !op ? t('myShoppingList') : t('shoppingListOf',{name:op.name}));
+  if (l) $('title').textContent = l.emoji + ' ' + (owner===uid || !op ? l.name : t('listNameOf',{list:l.name, name:op.name}));
+  else $('title').textContent = '📋 ' + (owner===uid || !op ? t('myLists') : t('listsOf',{name:op.name}));
 }
 function renderListDesc(){
   const d=$('listDesc'); if(!d) return;
@@ -730,7 +730,7 @@ function saveList(){
   setDoc(ref, data).catch(err=>{ pendingLists.delete(ref.id); handleWriteError(err); });
   lists=[...lists,{id:ref.id,...data}];
   closeListSheet();
-  mode='plan'; try{localStorage.setItem('shopMode',mode)}catch(e){}
+  mode='plan'; try{localStorage.setItem('listsMode',mode)}catch(e){}
   openList(o, ref.id);
   setStatus(t('listCreated',{name}));
 }
@@ -816,7 +816,7 @@ function renderUserMenu(){
   const lang=el('button','u-item','🌐 '+t('langSwitch')); lang.type='button'; lang.onclick=()=>setLang(isAr?'en':'ar');
   const site=el('a','u-item',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
   const out=el('button','u-item danger','↩ '+t('signOut')); out.type='button'; out.id='uSignOut';
-  out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
+  out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('listsOwner')}catch(e){} location.reload(); };
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const inst=el('button','u-item','📲 '+t('installApp')); inst.type='button'; inst.id='uInstall';
   inst.onclick=async()=>{
@@ -843,7 +843,7 @@ async function saveProfile(){
     await setDoc(doc(fs,'users/'+uid), {name}, {merge:true});
     if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name}, {merge:true});
     // the people I share with see my new name
-    for (const fid of Object.keys(myFamily||{})) { try{ await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name}, {merge:true}); }catch(e){} }
+    for (const fid of Object.keys(myMembers||{})) { try{ await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name}, {merge:true}); }catch(e){} }
     me=name; names[me]=me;
     U.busy=false; U.msg=t('profileSaved'); renderUserBtn(); renderSwitcher(); render(); renderUserMenu();
   }catch(e){ U.busy=false; U.err=t('errSave'); renderUserMenu(); }
@@ -852,10 +852,10 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && userMenu) close
 function openList(o, lid){
   unsubs.forEach(f=>{ try{f()}catch(e){} }); unsubs=[];
   if (o!==owner){ lists=[]; listsLoaded=false; mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}; }
-  owner=o; store('shopOwner', o);
-  listId = lid || store('shopList:'+o) || 'main';
+  owner=o; store('listsOwner', o);
+  listId = lid || store('lastList:'+o) || 'main';
   if (listsLoaded && (listId==='none' ? allLists().length : !allLists().some(l=>l.id===listId)) && !pendingLists.has(listId)) listId=firstListId();
-  store('shopList:'+o, listId);
+  store('lastList:'+o, listId);
   items=new Map(); trips=[]; tripIds=[]; recent=[]; setStatus('');
   if (itemQuery || itemSearchOn) toggleItemSearch(false);
   curBase = hasList() ? listBase(o, listId) : '';
@@ -870,7 +870,7 @@ function openList(o, lid){
         closeListSheet(); openList(o, firstListId()); if (wasReal) setStatus(t('listGone'), true); return;
       }
     }
-    renderLists(); updateTitle(); if (!editing) render(); if (famOpen) renderFamily();
+    renderLists(); updateTitle(); if (!editing) render(); if (shareOpen) renderSharing();
   };
   const parseMain = mv => ({name:String(mv.name||'').slice(0,40), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒', description:String(mv.description||'').slice(0,120), type:TYPES[mv.type]?mv.type:'shopping', createdAt:+mv.createdAt||0, deleted:!!mv.deleted});
   const parseList = (id,v) => ({id, name:String(v.name||t('list')).slice(0,40), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', description:String(v.description||'').slice(0,120), type:TYPES[v.type]?v.type:'shopping', createdAt:+v.createdAt||0});
@@ -941,8 +941,15 @@ function openList(o, lid){
   }, ()=>{}));
 }
 
-// ---- family page ----
-let famOpen=false, famMsg='', famOk=false, famBusy=false, famConfirm=null, famInviteRole='edit', famMail=null, myListsCache=null;
+// ---- sharing page ----
+// people I share with used to be saved as 'family'/'familyEmails' on users/{uid}; move them to 'members'/'memberEmails' once
+let oldFieldsMoved=false;
+function moveOldMemberFields(d){
+  if (oldFieldsMoved || !(d.family || d.familyEmails)) return;
+  oldFieldsMoved=true;
+  setDoc(doc(fs,'users/'+uid), {members:{...(d.family||{}), ...(d.members||{})}, memberEmails:{...(d.familyEmails||{}), ...(d.memberEmails||{})}, family:deleteField(), familyEmails:deleteField()}, {merge:true}).catch(()=>{ oldFieldsMoved=false; });
+}
+let shareOpen=false, shareMsg='', shareOk=false, shareBusy=false, shareConfirm=null, shareInviteRole='edit', shareMail=null, myListsCache=null;
 // my own lists, to choose which ones each person can open
 function myOwnLists(){ return owner===uid ? allLists() : (myListsCache||[]); }
 async function loadMyLists(){
@@ -953,7 +960,7 @@ async function loadMyLists(){
     const out = mv.deleted ? [] : [{id:'main', name:mv.name||t('mainList'), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒'}];
     for (const d of snap.docs){ if(d.id==='main') continue; const v=d.data()||{}; out.push({id:d.id, name:String(v.name||t('list')), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}); }
     myListsCache = sortMyLists(out);
-    if (famOpen) renderFamily();
+    if (shareOpen) renderSharing();
   }catch(e){}
 }
 // an email the owner can send from their own mail app to tell someone what they can open
@@ -978,69 +985,69 @@ const ICON = {
 function iconEl(name){ const s=document.createElement('span'); s.style.display='inline-flex'; s.innerHTML=ICON[name]; return s; }
 function avatarColor(seed){ let h=0; for(const ch of String(seed)) h=(h*31+ch.charCodeAt(0))>>>0; return `hsl(${h%360} 45% 42%)`; }
 function initialsOf(name){ return String(name||'?').trim().split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase() || '?'; }
-function famPeople(){
+function sharePeople(){
   const map=new Map();
-  for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||t('familyMember')), email:String(familyEmails[fid]||''), canEditMine:true, access:myAccess[fid]||{}, sharedWithMe:false});
-  for (const p of sharedWithMe){ if(!sharesWithMe(p) && !myFamily[p.uid]) continue; const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false, access:{}}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=sharesWithMe(p); map.set(p.uid,x); }
+  for (const [fid,fname] of Object.entries(myMembers)) map.set(fid,{uid:fid, name:String(fname||t('someone')), email:String(memberEmails[fid]||''), canEditMine:true, access:myAccess[fid]||{}, sharedWithMe:false});
+  for (const p of sharedWithMe){ if(!sharesWithMe(p) && !myMembers[p.uid]) continue; const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false, access:{}}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=sharesWithMe(p); map.set(p.uid,x); }
   // invited by email, no account yet
   for (const [em,inv] of Object.entries(myInvites||{})){ if(!inv) continue; const id='invite:'+em; map.set(id,{uid:id, name:em, email:'', inviteEmail:em, pending:true, canEditMine:true, access:inv.lists||{}, sharedWithMe:false}); }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name, lang));
 }
-function closeFamily(){ famOpen=false; famMsg=''; famConfirm=null; const s=$('famSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', famKeys); }
-function famKeys(e){ if(e.key==='Escape') closeFamily(); }
-function openFamily(){ famOpen=true; famMsg=''; famConfirm=null; famInviteRole='edit'; famMail=null; loadMyLists(); document.body.style.overflow='hidden'; document.addEventListener('keydown', famKeys); renderFamily(); setTimeout(()=>{ const i=$('famEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
-function renderFamily(msg, ok){
-  if(!famOpen) return;
-  if(msg!==undefined){ famMsg=msg; famOk=!!ok; }
-  let wrap=$('famSheet');
-  const keepEmail = wrap ? (wrap.querySelector('#famEmail')||{}).value||'' : '';
-  const scroll = wrap ? (wrap.querySelector('.fam-body')||{}).scrollTop||0 : 0;
-  if(!wrap){ wrap=el('div','sheet fam-sheet'); wrap.id='famSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeFamily(); }; document.body.appendChild(wrap); }
+function closeSharing(){ shareOpen=false; shareMsg=''; shareConfirm=null; const s=$('shareSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', shareKeys); }
+function shareKeys(e){ if(e.key==='Escape') closeSharing(); }
+function openSharing(){ shareOpen=true; shareMsg=''; shareConfirm=null; shareInviteRole='edit'; shareMail=null; loadMyLists(); document.body.style.overflow='hidden'; document.addEventListener('keydown', shareKeys); renderSharing(); setTimeout(()=>{ const i=$('shareEmail'); if(i && window.innerWidth>600) i.focus(); },250); }
+function renderSharing(msg, ok){
+  if(!shareOpen) return;
+  if(msg!==undefined){ shareMsg=msg; shareOk=!!ok; }
+  let wrap=$('shareSheet');
+  const keepEmail = wrap ? (wrap.querySelector('#shareEmail')||{}).value||'' : '';
+  const scroll = wrap ? (wrap.querySelector('.share-body')||{}).scrollTop||0 : 0;
+  if(!wrap){ wrap=el('div','sheet share-sheet'); wrap.id='shareSheet'; wrap.onclick=e=>{ if(e.target===wrap) closeSharing(); }; document.body.appendChild(wrap); }
   wrap.innerHTML='';
-  const panel=el('div','fam-panel'); panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-labelledby','famTitle');
-  panel.appendChild(el('div','fam-grab'));
+  const panel=el('div','share-panel'); panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-labelledby','shareTitle');
+  panel.appendChild(el('div','share-grab'));
 
   // header
-  const head=el('div','fam-head'); const ttl=el('div','ttl');
-  const h=el('h3',null,t('famTitle')); h.id='famTitle'; ttl.append(h, el('p',null,t('famSub')));
-  const x=document.createElement('button'); x.className='icon-btn'; x.type='button'; x.setAttribute('aria-label',t('close')); x.innerHTML=ICON.close; x.onclick=closeFamily;
+  const head=el('div','share-head'); const ttl=el('div','ttl');
+  const h=el('h3',null,t('shareTitle')); h.id='shareTitle'; ttl.append(h, el('p',null,t('shareSub')));
+  const x=document.createElement('button'); x.className='icon-btn'; x.type='button'; x.setAttribute('aria-label',t('close')); x.innerHTML=ICON.close; x.onclick=closeSharing;
   head.append(ttl,x); panel.appendChild(head);
 
-  const body=el('div','fam-body');
+  const body=el('div','share-body');
 
   // invite card
-  const card=el('section','fam-card');
+  const card=el('section','share-card');
   card.appendChild(el('h4',null,t('inviteTitle')));
   card.appendChild(el('p','lead',t(owner===uid && hasList() ? 'inviteLeadList' : 'inviteLeadNone',{list:(allLists().find(l=>l.id===listId)||{}).name||''})));
   const roles=el('div','role-pick'); roles.setAttribute('role','radiogroup'); roles.setAttribute('aria-label',t('access'));
   for (const [val,title,desc] of [['edit',t('canEdit'),t('canEditDesc')],['view',t('viewOnly'),t('viewOnlyDesc')]]){
-    const opt=document.createElement('button'); opt.type='button'; opt.className='role-opt'+(famInviteRole===val?' on':''); opt.dataset.role=val;
-    opt.setAttribute('role','radio'); opt.setAttribute('aria-checked', famInviteRole===val?'true':'false');
+    const opt=document.createElement('button'); opt.type='button'; opt.className='role-opt'+(shareInviteRole===val?' on':''); opt.dataset.role=val;
+    opt.setAttribute('role','radio'); opt.setAttribute('aria-checked', shareInviteRole===val?'true':'false');
     const dot=el('span','dot'); const txt=el('span','txt'); txt.appendChild(el('b',null,title)); txt.appendChild(el('small',null,desc));
-    opt.append(dot,txt); opt.onclick=()=>{ famInviteRole=val; renderFamily(); };
+    opt.append(dot,txt); opt.onclick=()=>{ shareInviteRole=val; renderSharing(); };
     roles.appendChild(opt);
   }
   card.appendChild(roles);
-  const form=document.createElement('form'); form.className='fam-invite'; form.noValidate=true;
-  const field=el('label','fam-field'); field.appendChild(iconEl('mail'));
-  const inp=document.createElement('input'); inp.id='famEmail'; inp.type='email'; inp.placeholder='name@example.com'; inp.value=keepEmail; inp.autocomplete='off'; inp.inputMode='email'; inp.setAttribute('aria-label',t('memberEmail'));
+  const form=document.createElement('form'); form.className='share-invite'; form.noValidate=true;
+  const field=el('label','share-field'); field.appendChild(iconEl('mail'));
+  const inp=document.createElement('input'); inp.id='shareEmail'; inp.type='email'; inp.placeholder='name@example.com'; inp.value=keepEmail; inp.autocomplete='off'; inp.inputMode='email'; inp.setAttribute('aria-label',t('memberEmail'));
   field.appendChild(inp);
-  const add=document.createElement('button'); add.type='submit'; add.className='btn btn-primary'; add.id='famAddBtn'; add.disabled=famBusy;
-  if(famBusy){ add.appendChild(el('span','spin')); add.setAttribute('aria-label',t('adding')); } else add.textContent=t('add');
+  const add=document.createElement('button'); add.type='submit'; add.className='btn btn-primary'; add.id='shareAddBtn'; add.disabled=shareBusy;
+  if(shareBusy){ add.appendChild(el('span','spin')); add.setAttribute('aria-label',t('adding')); } else add.textContent=t('add');
   form.append(field, add);
-  form.onsubmit=e=>{ e.preventDefault(); if(!famBusy) addMember(inp.value); };
+  form.onsubmit=e=>{ e.preventDefault(); if(!shareBusy) addMember(inp.value); };
   card.appendChild(form);
-  if(famMsg){ const a=el('div','fam-alert '+(famOk?'ok':'err')); a.setAttribute('role','status'); a.appendChild(iconEl(famOk?'ok':'err')); a.appendChild(el('span','msg',famMsg)); card.appendChild(a); }
-  if(famMail){ const m=el('a','btn btn-soft fam-mail','✉️ '+t('emailThem',{name:famMail.name||famMail.email})); m.id='famMailBtn'; m.href=mailtoFor(famMail.name, famMail.email, famMail.grants, famMail.pending); m.target='_blank'; m.rel='noopener'; card.appendChild(m); }
+  if(shareMsg){ const a=el('div','share-alert '+(shareOk?'ok':'err')); a.setAttribute('role','status'); a.appendChild(iconEl(shareOk?'ok':'err')); a.appendChild(el('span','msg',shareMsg)); card.appendChild(a); }
+  if(shareMail){ const m=el('a','btn btn-soft share-mail','✉️ '+t('emailThem',{name:shareMail.name||shareMail.email})); m.id='shareMailBtn'; m.href=mailtoFor(shareMail.name, shareMail.email, shareMail.grants, shareMail.pending); m.target='_blank'; m.rel='noopener'; card.appendChild(m); }
   body.appendChild(card);
 
   // members
-  const people=famPeople();
+  const people=sharePeople();
   const sec=el('section');
-  const sh=el('div','fam-sec-head'); sh.appendChild(el('h4',null,t('members'))); if(people.length) sh.appendChild(el('span','num',String(people.length)));
+  const sh=el('div','share-sec-head'); sh.appendChild(el('h4',null,t('members'))); if(people.length) sh.appendChild(el('span','num',String(people.length)));
   sec.appendChild(sh);
   if(!people.length){
-    const e=el('div','members fam-empty'); const ic=el('div','ic'); ic.innerHTML=ICON.people; e.appendChild(ic);
+    const e=el('div','members share-empty'); const ic=el('div','ic'); ic.innerHTML=ICON.people; e.appendChild(ic);
     e.appendChild(el('b',null,t('noMembers'))); e.appendChild(document.createTextNode(t('noMembersHint')));
     sec.appendChild(e);
   } else {
@@ -1058,7 +1065,7 @@ function renderFamily(msg, ok){
       const b2=el('span','badge2'+(p.sharedWithMe?' on':'')+(p.pending?' pending':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.pending?t('bPending'):p.sharedWithMe?t('bShared'):t('bNotShared'));
       bd.append(b1,b2); m.appendChild(bd);
       // which of my lists this person can open
-      if(p.canEditMine && famConfirm!==p.uid){
+      if(p.canEditMine && shareConfirm!==p.uid){
         const mine=myOwnLists();
         const box=el('div','acc-lists'); box.appendChild(el('div','acc-h',t('theirAccess')));
         if(!mine.length) box.appendChild(el('div','acc-empty',t('noListsToShare')));
@@ -1080,19 +1087,19 @@ function renderFamily(msg, ok){
         m.appendChild(box);
       }
 
-      if(famConfirm===p.uid){
+      if(shareConfirm===p.uid){
         const c=el('div','confirm');
         c.appendChild(el('div',null,p.pending ? t('confirmCancelInvite',{email:p.inviteEmail}) : t('confirmRemove',{name:p.name})));
         const r=el('div','row2');
-        const cancel=el('button','btn',t('cancel')); cancel.type='button'; cancel.onclick=()=>{ famConfirm=null; renderFamily(); };
-        const yes=el('button','btn btn-danger-solid',t('remove')); yes.type='button'; yes.onclick=()=>{ famConfirm=null; if(p.pending) removeInvite(p.inviteEmail); else removeMember(p.uid,p.name); };
+        const cancel=el('button','btn',t('cancel')); cancel.type='button'; cancel.onclick=()=>{ shareConfirm=null; renderSharing(); };
+        const yes=el('button','btn btn-danger-solid',t('remove')); yes.type='button'; yes.onclick=()=>{ shareConfirm=null; if(p.pending) removeInvite(p.inviteEmail); else removeMember(p.uid,p.name); };
         r.append(cancel,yes); c.appendChild(r); m.appendChild(c);
       } else {
         const acts=el('div','acts');
-        if(p.sharedWithMe){ const o=el('button','btn btn-soft',t('openTheirList')); o.type='button'; o.onclick=()=>{ closeFamily(); openList(p.uid); }; acts.appendChild(o); }
-        if(!p.canEditMine){ const s=el('button','btn',t('shareMyList')); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email,famInviteRole); acts.appendChild(s); }
+        if(p.sharedWithMe){ const o=el('button','btn btn-soft',t('openTheirList')); o.type='button'; o.onclick=()=>{ closeSharing(); openList(p.uid); }; acts.appendChild(o); }
+        if(!p.canEditMine){ const s=el('button','btn',t('shareMyList')); s.type='button'; s.onclick=()=>shareWith(p.uid,p.name,p.email,shareInviteRole); acts.appendChild(s); }
         acts.appendChild(el('span','sp'));
-        if(p.canEditMine){ const rm=el('button','btn btn-danger',t('remove')); rm.type='button'; rm.onclick=()=>{ famConfirm=p.uid; renderFamily(); }; acts.appendChild(rm); }
+        if(p.canEditMine){ const rm=el('button','btn btn-danger',t('remove')); rm.type='button'; rm.onclick=()=>{ shareConfirm=p.uid; renderSharing(); }; acts.appendChild(rm); }
         m.appendChild(acts);
       }
       list.appendChild(m);
@@ -1100,42 +1107,42 @@ function renderFamily(msg, ok){
     sec.appendChild(list);
   }
   body.appendChild(sec);
-  body.appendChild(el('p','fam-note',t('famNote')));
+  body.appendChild(el('p','share-note',t('shareNote')));
   panel.appendChild(body);
   wrap.appendChild(panel);
   body.scrollTop=scroll;
 }
 async function addMember(email){
   email=(email||'').trim().toLowerCase();
-  if(!email || !isEmail(email)) return renderFamily(t('errEmail'));
-  if(email===myEmail) return renderFamily(t('fOwn'));
-  const known=famPeople().find(p=>p.canEditMine && p.email===email);
-  if(known) return renderFamily(t('fAlready',{name:known.name}), true);
-  if(myInvites[email]) return renderFamily(t('fAlreadyInvited',{email}), true);
-  famBusy=true; renderFamily('');
+  if(!email || !isEmail(email)) return renderSharing(t('errEmail'));
+  if(email===myEmail) return renderSharing(t('fOwn'));
+  const known=sharePeople().find(p=>p.canEditMine && p.email===email);
+  if(known) return renderSharing(t('fAlready',{name:known.name}), true);
+  if(myInvites[email]) return renderSharing(t('fAlreadyInvited',{email}), true);
+  shareBusy=true; renderSharing('');
   try{
     const snap=await getDoc(doc(fs,'emails/'+email));
-    if(!snap.exists()){ famBusy=false; await inviteByEmail(email, famInviteRole); const i=$('famEmail'); if(i) i.value=''; return; }
+    if(!snap.exists()){ shareBusy=false; await inviteByEmail(email, shareInviteRole); const i=$('shareEmail'); if(i) i.value=''; return; }
     const p=snap.data();
-    if(myFamily[p.uid]){ famBusy=false; return renderFamily(t('fAlready',{name:p.name||t('they')}), true); }
-    famBusy=false;
-    await shareWith(p.uid, p.name, email, famInviteRole);
-    const i=$('famEmail'); if(i) i.value='';
-  }catch(e){ famBusy=false; renderFamily(t('fAddFail')); }
+    if(myMembers[p.uid]){ shareBusy=false; return renderSharing(t('fAlready',{name:p.name||t('they')}), true); }
+    shareBusy=false;
+    await shareWith(p.uid, p.name, email, shareInviteRole);
+    const i=$('shareEmail'); if(i) i.value='';
+  }catch(e){ shareBusy=false; renderSharing(t('fAddFail')); }
 }
 // add someone to my people; if one of my lists is open, they get it straight away
 async function shareWith(fid, fname, femail, role){
   role = role==='view' ? 'view' : 'edit';
   const l = owner===uid && hasList() ? allLists().find(x=>x.id===listId) : null;
   try{
-    const upd = {family:{[fid]:String(fname||'')}, familyEmails:{[fid]:String(femail||'')}};
+    const upd = {members:{[fid]:String(fname||'')}, memberEmails:{[fid]:String(femail||'')}};
     if (l) upd.access = {[fid]:{[l.id]:role}};
     await setDoc(doc(fs,'users/'+uid), upd, {merge:true});
     const sw = {name:me, email:myEmail, at:Date.now()}; if (l) sw.lists = {[l.id]:role};
     await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), sw, {merge:true});
-    famMail = l ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
-    renderFamily(l ? t(role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}) : t('fAdded',{name:fname||t('they')}), true);
-  }catch(e){ renderFamily(t('fShareFail')); }
+    shareMail = l ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
+    renderSharing(l ? t(role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}) : t('fAdded',{name:fname||t('they')}), true);
+  }catch(e){ renderSharing(t('fShareFail')); }
 }
 // no account uses that email yet: save an invite. It is kept in two places:
 //  users/{me}.invites[email].lists — what Firestore rules check, so they can open the lists as soon as they register
@@ -1147,25 +1154,25 @@ async function inviteByEmail(email, role){
   try{
     await setDoc(doc(fs,'users/'+uid), {invites:{[email]:{lists, at}}}, {merge:true});
     await setDoc(doc(fs,'invites/'+email+'/from/'+uid), {name:me, email:myEmail, lists, at}, {merge:true});
-    famMail = l ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
-    renderFamily(l ? t('fInvited',{email, list:l.name}) : t('fInvitedNone',{email}), true);
-  }catch(e){ renderFamily(t('fShareFail')); }
+    shareMail = l ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
+    renderSharing(l ? t('fInvited',{email, list:l.name}) : t('fInvitedNone',{email}), true);
+  }catch(e){ renderSharing(t('fShareFail')); }
 }
 async function setInviteAccess(email, l, role){
   const v = role==='edit'||role==='view' ? role : deleteField();
   try{
     await setDoc(doc(fs,'users/'+uid), {invites:{[email]:{lists:{[l.id]:v}}}}, {merge:true});
     await setDoc(doc(fs,'invites/'+email+'/from/'+uid), {name:me, email:myEmail, lists:{[l.id]:v}}, {merge:true});
-    famMail = role ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
-    renderFamily(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:email, list:l.name}), true);
-  }catch(e){ renderFamily(t('fRoleFail')); }
+    shareMail = role ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
+    renderSharing(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:email, list:l.name}), true);
+  }catch(e){ renderSharing(t('fRoleFail')); }
 }
 async function removeInvite(email){
   try{
     await setDoc(doc(fs,'users/'+uid), {invites:{[email]:deleteField()}}, {merge:true});
     await deleteDoc(doc(fs,'invites/'+email+'/from/'+uid));
-    famMail=null; renderFamily(t('fInviteRemoved',{email}), true);
-  }catch(e){ renderFamily(t('fRemoveFail')); }
+    shareMail=null; renderSharing(t('fInviteRemoved',{email}), true);
+  }catch(e){ renderSharing(t('fRemoveFail')); }
 }
 // once an invited person has registered, turn their invite into a normal member (same lists, same roles)
 const invitesChecked = new Set();
@@ -1178,7 +1185,7 @@ async function settleInvites(){
       const p = s.exists() ? (s.data()||{}) : null;
       if (!p || !p.uid || p.uid===uid) continue;
       const lists = inv.lists||{}, name = String(p.name||em.split('@')[0]);
-      await setDoc(doc(fs,'users/'+uid), {family:{[p.uid]:name}, familyEmails:{[p.uid]:em}, access:{[p.uid]:lists}, invites:{[em]:deleteField()}}, {merge:true});
+      await setDoc(doc(fs,'users/'+uid), {members:{[p.uid]:name}, memberEmails:{[p.uid]:em}, access:{[p.uid]:lists}, invites:{[em]:deleteField()}}, {merge:true});
       await setDoc(doc(fs,'users/'+p.uid+'/sharedWithMe/'+uid), {name:me, email:myEmail, lists, at:Date.now()}, {merge:true});
       await deleteDoc(doc(fs,'invites/'+em+'/from/'+uid));
     }catch(e){ invitesChecked.delete(em); }
@@ -1189,9 +1196,9 @@ async function setListAccess(fid, fname, femail, l, role){
   try{
     await setDoc(doc(fs,'users/'+uid), {access:{[fid]:{[l.id]:v}}}, {merge:true});
     await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {name:me, email:myEmail, lists:{[l.id]:v}}, {merge:true});
-    famMail = role ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
-    renderFamily(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}), true);
-  }catch(e){ renderFamily(t('fRoleFail')); }
+    shareMail = role ? {name:fname, email:femail, grants:[{name:l.name, emoji:l.emoji, role}]} : null;
+    renderSharing(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}), true);
+  }catch(e){ renderSharing(t('fRoleFail')); }
 }
 // a deleted list is taken out of everyone's access
 async function dropListAccess(lid){
@@ -1212,10 +1219,10 @@ async function dropListAccess(lid){
 }
 async function removeMember(fid, fname){
   try{
-    await setDoc(doc(fs,'users/'+uid), {family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}, access:{[fid]:deleteField()}}, {merge:true});
+    await setDoc(doc(fs,'users/'+uid), {members:{[fid]:deleteField()}, memberEmails:{[fid]:deleteField()}, family:{[fid]:deleteField()}, familyEmails:{[fid]:deleteField()}, access:{[fid]:deleteField()}}, {merge:true});
     await deleteDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid));
-    famMail=null; renderFamily(t('fRemoved',{name:fname||t('they')}), true);
-  }catch(e){ renderFamily(t('fRemoveFail')); }
+    shareMail=null; renderSharing(t('fRemoved',{name:fname||t('they')}), true);
+  }catch(e){ renderSharing(t('fRemoveFail')); }
 }
 
 // combine what people shared with me directly and what they invited my email to before I registered
@@ -1238,7 +1245,7 @@ function applyShared(){
     if (!sharesWithMe(p)){ if (!swCache && !invCache){ openList(uid); setStatus(t('noAccess'), true); } }
     else if (key(owner)!==before) openList(owner, listId);   // what they share with me changed
   }
-  renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
+  renderSwitcher(); renderLists(); if(shareOpen) renderSharing(); if(owner && owner!==uid && !editing) render();
 }
 
 // ---- boot ----
@@ -1270,13 +1277,13 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; myAccess=d.access||{}; myInvites=d.invites||{}; renderSwitcher(); if(famOpen) renderFamily(); settleInvites(); }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myMembers={...(d.family||{}), ...(d.members||{})}; memberEmails={...(d.familyEmails||{}), ...(d.memberEmails||{})}; moveOldMemberFields(d); myAccess=d.access||{}; myInvites=d.invites||{}; renderSwitcher(); if(shareOpen) renderSharing(); settleInvites(); }, ()=>{});
     const parseShare = d => { const v=d.data()||{}; const ls={}; for (const [k,r] of Object.entries(v.lists||{})) if(r==='edit'||r==='view') ls[k]=r;
-      return {uid:d.id, name:String(v.name||t('familyMember')), email:String(v.email||''), lists:ls}; };
+      return {uid:d.id, name:String(v.name||t('someone')), email:String(v.email||''), lists:ls}; };
     fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{ swDocs=s.docs.map(parseShare); swLoaded=true; swCache=!!(s.metadata && s.metadata.fromCache); applyShared(); }, ()=>{ swLoaded=true; applyShared(); });
     if (myEmail) fsSnap(collection(fs,'invites/'+myEmail+'/from'), s=>{ invDocs=s.docs.map(parseShare).filter(sharesWithMe); invLoaded=true; invCache=!!(s.metadata && s.metadata.fromCache); applyShared(); }, ()=>{ invDocs=[]; invLoaded=true; applyShared(); });
     else invLoaded=true;
-    const last = store('shopOwner');
+    const last = store('listsOwner');
     openList(last && last!==uid ? last : uid);
   });
 })();
