@@ -327,3 +327,6 @@ html[lang=ar] h1{font-size:22px}
 .also-chip{font-size:13px;padding:5px 10px;min-height:30px}
 .also-chip .em{font-size:14px}
 .search-btn.hidden{display:none}
+/* user menu bar at the top of the page */
+.toolbar.topbar{margin:12px 16px 0}
+.toolbar.topbar + header{padding-top:8px}
