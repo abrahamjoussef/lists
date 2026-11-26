@@ -11,8 +11,8 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=23";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=23";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=24";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=24";
 applyStatic();
 const CATS = [
   {id:'produce', label:'Fruit & Veg', e:'🥬'},
@@ -287,21 +287,68 @@ const normQ = s => normDigits(String(s||'')).toLowerCase().replace(/[ً-ْـ]/g,
 const matches = (text, q) => { const n=normQ(text); return normQ(q).split(/\s+/).every(w=>n.includes(w)); };
 function itemMatches(i){ return !itemQuery || matches(i.name+' '+(i.note||''), itemQuery); }
 function renderSearchBar(){
+  const btn=$('searchBtn'); if(btn) btn.classList.toggle('hidden', !hasList());
+  if (!hasList() && itemSearchOn){ itemSearchOn=false; itemQuery=''; const i=$('itemSearch'); if(i) i.value=''; if(btn){ btn.classList.remove('on'); btn.setAttribute('aria-expanded','false'); } }
   const bar=$('itemSearchBar'); if(!bar) return;
   bar.classList.toggle('hidden', !hasList() || !searchOpen());
+}
+// ---- the item search also looks in the other lists you can open ----
+let otherHits=null, otherSeq=0, otherCache=null, otherTimer=0;
+async function loadOtherItems(){
+  const others=allLists().filter(l=>l.id!==listId), key=owner+'|'+listId+'|'+others.map(l=>l.id).join(',');
+  if (otherCache && otherCache.key===key && Date.now()-otherCache.at<30000) return otherCache.data;
+  const data=new Map();
+  await Promise.all(others.map(async l=>{
+    try{ const s=await getDocs(collection(fs, listBase(owner,l.id)+'items')); data.set(l.id, s.docs.map(d=>d.data()||{})); }catch(e){}
+  }));
+  otherCache={key, at:Date.now(), data}; return data;
+}
+function updateOtherHits(){
+  clearTimeout(otherTimer);
+  const q=itemQuery, seq=++otherSeq;
+  if (!q || !hasList()){ otherHits=null; return; }
+  otherTimer=setTimeout(async ()=>{
+    const data=await loadOtherItems(); if (seq!==otherSeq || q!==itemQuery) return;
+    const hits=[];
+    for (const l of allLists()){
+      if (l.id===listId) continue;
+      const n=(data.get(l.id)||[]).filter(i=>matches(String(i.name||'')+' '+String(i.note||''), q)).length;
+      const byName=matches(l.name+' '+(l.description||''), q);
+      if (n || byName) hits.push({l, n});
+    }
+    otherHits={q, hits}; render();
+  }, 250);
+}
+function otherHitsEl(){
+  if (!itemQuery || !otherHits || otherHits.q!==itemQuery || !otherHits.hits.length) return null;
+  const w=el('div','also-in'); w.appendChild(el('span','also-h',t('alsoIn')));
+  for (const {l,n} of otherHits.hits){
+    const b=el('button','chip also-chip'); b.type='button'; b.dataset.list=l.id;
+    b.append(el('span','em',l.emoji), document.createTextNode(' '+l.name+(n?' · '+n:'')));
+    b.onclick=()=>openListWithSearch(l.id);
+    w.appendChild(b);
+  }
+  return w;
+}
+function openListWithSearch(id){
+  const q=itemQuery; openList(owner, id);
+  itemSearchOn=true; itemQuery=q; const i=$('itemSearch'); if(i) i.value=q;
+  const b=$('searchBtn'); if(b){ b.classList.add('on'); b.setAttribute('aria-expanded','true'); }
+  renderSearchBar(); render(); updateOtherHits();
 }
 const searchOpen = () => itemSearchOn;
 let itemSearchOn=false;
 function toggleItemSearch(on){
   itemSearchOn = on===undefined ? !itemSearchOn : on;
-  if (!itemSearchOn){ itemQuery=''; const i=$('itemSearch'); if(i) i.value=''; }
+  if (!itemSearchOn){ itemQuery=''; otherHits=null; const i=$('itemSearch'); if(i) i.value=''; }
+  else otherCache=null;   // fresh look at the other lists each time search opens
   const b=$('searchBtn'); if(b){ b.classList.toggle('on', itemSearchOn); b.setAttribute('aria-expanded', itemSearchOn?'true':'false'); }
   renderSearchBar(); render();
   if (itemSearchOn) setTimeout(()=>{ const i=$('itemSearch'); if(i) i.focus(); },30);
 }
 function render(){
-  if (!hasList()) return renderNoLists();
   renderSearchBar();
+  if (!hasList()) return renderNoLists();
   if ($('catPick').dataset.type!==curType()) renderCatPick();
   const every = [...items.values()];
   const all = itemQuery ? every.filter(itemMatches) : every;
@@ -322,6 +369,7 @@ function render(){
   if (mode==='trips'){ renderHistory(main); return; }
   if (itemQuery){
     main.appendChild(el('div','label search-count', t('searchCount',{n:all.length, q:itemQuery})));
+    const oh=otherHitsEl(); if(oh) main.appendChild(oh);
     if (!all.length){ const e=el('div','empty'); e.innerHTML='<b>🔍</b>'; e.appendChild(document.createTextNode(t('noMatches'))); main.appendChild(e); return; }
   }
 
@@ -419,6 +467,7 @@ function renderHistory(main){
   const shownTrips = itemQuery ? trips.map(x=>({...x, items:x.items.filter(itemMatches)})).filter(x=>x.items.length) : trips.filter(x=>x.items.length);
   if (itemQuery){
     main.appendChild(el('div','label search-count', t('searchCountHist',{n:shownTrips.length, q:itemQuery})));
+    const oh=otherHitsEl(); if(oh) main.appendChild(oh);
     if (!shownTrips.length){ const e=el('div','empty'); e.innerHTML='<b>🔍</b>'; e.appendChild(document.createTextNode(t('noMatches'))); main.appendChild(e); return; }
   }
   for (const tr of shownTrips.slice(0,60)){
@@ -626,8 +675,9 @@ function renderLists(){
   const all = allLists();
   if (!ed && !all.length){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  // search the lists (shown once there are a few)
-  if (all.length>=3){
+  // search the lists
+  const hadFocus = document.activeElement && document.activeElement.id==='listSearch';
+  if (all.length){
     if (listSearchOpen){
       const w=el('div','lsearch'); const i=document.createElement('input'); i.id='listSearch'; i.type='text'; i.enterKeyHint='search'; i.value=listQuery;
       i.placeholder=t('searchLists'); i.setAttribute('aria-label',t('searchLists')); i.autocomplete='off';
@@ -648,7 +698,10 @@ function renderLists(){
     b.append(el('span','em',l.emoji), el('span','ln',l.name));
     if (!ed && myRoleOn(owner,l.id)==='view') b.appendChild(el('span','tag',t('viewOnly')));
     if (l.createdAt) b.title = fmtCreated(l.createdAt);
-    b.onclick=()=>{ if(!on) openList(owner, l.id); else if(ed) openListSheet(l); };
+    b.onclick=()=>{
+      const searching=listSearchOpen; if (searching){ listSearchOpen=false; listQuery=''; }   // picking a result closes the list search
+      if (!on) openList(owner, l.id); else if (searching) renderLists(); else if (ed) openListSheet(l);
+    };
     box.appendChild(b);
     if (on && ed){
       const e=document.createElement('button'); e.type='button'; e.className='ltab-edit'; e.id='editListBtn';
@@ -658,7 +711,8 @@ function renderLists(){
   }
   if (listSearchOpen){ box.appendChild(el('span','ls-none hidden',t('noListMatches'))); filterListTabs(); }
   if (ed){ const n=el('button','ltab new',t('newList')); n.type='button'; n.id='newListBtn'; n.onclick=()=>openListSheet(null); box.appendChild(n); }
-  const act = box.querySelector('.ltab.on'); if (act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
+  const act = box.querySelector('.ltab.on'); if (!listSearchOpen && act && act.scrollIntoView) try{ act.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
+  if (listSearchOpen && hadFocus){ const i=$('listSearch'); if(i){ i.focus(); try{ i.setSelectionRange(i.value.length, i.value.length); }catch(e){} } }
 }
 
 // ---- create / rename / delete a list ----
@@ -776,7 +830,7 @@ function addToolbar(){
   bar.append(ub, sb, lg);
   const sr=el('div','searchbar hidden'); sr.id='itemSearchBar';
   const si=document.createElement('input'); si.id='itemSearch'; si.type='text'; si.enterKeyHint='search'; si.placeholder=t('searchItemsPh'); si.setAttribute('aria-label',t('searchItems')); si.autocomplete='off';
-  si.oninput=()=>{ itemQuery=si.value.trim(); render(); };
+  si.oninput=()=>{ itemQuery=si.value.trim(); render(); updateOtherHits(); };
   si.onkeydown=e=>{ if(e.key==='Escape'){ e.preventDefault(); toggleItemSearch(false); } };
   const sx=el('button','sb-x','✕'); sx.type='button'; sx.setAttribute('aria-label',t('close')); sx.onclick=()=>toggleItemSearch(false);
   sr.append(si, sx);
