@@ -9,8 +9,16 @@ service cloud.firestore {
     }
     // access is given list by list: users/{owner}.access[memberUid][listId] = 'edit' | 'view'
     // ('main' is the main list)
+    // the signed-in person's email, lower case ('' if none)
+    function myEmail() {
+      return request.auth.token.get('email', '').lower();
+    }
+    // invites to people with no account yet: users/{owner}.invites[email].lists[listId] = 'edit' | 'view'
+    // (the owner's app turns an invite into an access entry once that person has registered)
     function roleOn(owner, lid) {
-      return ownerDoc(owner).get('access', {}).get(request.auth.uid, {}).get(lid, '');
+      let d = ownerDoc(owner);
+      let r = d.get('access', {}).get(request.auth.uid, {}).get(lid, '');
+      return r != '' ? r : (myEmail() == '' ? '' : d.get('invites', {}).get(myEmail(), {}).get('lists', {}).get(lid, ''));
     }
     function canRead(owner, lid) {
       return request.auth.uid == owner || roleOn(owner, lid) in ['edit', 'view'];
@@ -23,6 +31,12 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
       allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+    }
+    // who invited this email before it had an account: written by the inviter, read (and cleared) by the invitee
+    match /invites/{email}/from/{fromUid} {
+      allow read: if signedIn() && (request.auth.uid == fromUid || myEmail() == email);
+      allow create, update: if signedIn() && request.auth.uid == fromUid && email != myEmail();
+      allow delete: if signedIn() && (request.auth.uid == fromUid || myEmail() == email);
     }
     // each person's profile + who they share their list with (and how)
     match /users/{uid} {
