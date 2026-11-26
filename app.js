@@ -1,19 +1,19 @@
 // Shared Lists app logic
 // Firebase project settings (Firebase console → Project settings → Your apps → Web app)
 const firebaseConfig = {
-  apiKey: "AIzaSyBme9LUlSJIZ9zogsrJst4THDI9XcTUV84",
-  authDomain: "family-shopping-list-dd093.firebaseapp.com",
-  projectId: "family-shopping-list-dd093",
-  storageBucket: "family-shopping-list-dd093.firebasestorage.app",
-  messagingSenderId: "819867077057",
-  appId: "1:819867077057:web:47ea1b536de3f39f078740"
+  apiKey: "AIzaSyAgq66UGa7vk_YGxUgCLT8CvR-M43YkMOM",
+  authDomain: "shared-lists-7k2m.firebaseapp.com",
+  projectId: "shared-lists-7k2m",
+  storageBucket: "shared-lists-7k2m.firebasestorage.app",
+  messagingSenderId: "817194609982",
+  appId: "1:817194609982:web:fa7bc442b392bf71fb906f"
 };
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=28";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=28";
-import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=28";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=29";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=29";
+import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=29";
 applyStatic();
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 // ---- list types: each type has its own sections and suggestions ----

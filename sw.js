@@ -2,18 +2,18 @@
 // List data itself is kept offline by Firestore's own local cache (persistentLocalCache in app.js);
 // this file only caches the app's files so the page can load without a connection.
 // When you bump ?v= in index.html, bump VERSION here too so old files are cleared.
-const VERSION = 'v28';
+const VERSION = 'v29';
 const CACHE = 'lists-' + VERSION;
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 const APP_SHELL = [
   './',
   'index.html',
-  'styles.css?v=28',
-  'app.js?v=28',
-  'i18n.js?v=28',
-  'types.js?v=28',
-  'logic.js?v=28',
+  'styles.css?v=29',
+  'app.js?v=29',
+  'i18n.js?v=29',
+  'types.js?v=29',
+  'logic.js?v=29',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
