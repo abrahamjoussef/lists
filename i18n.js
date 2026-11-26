@@ -67,6 +67,7 @@ const EN = {
 
   myList: 'My list', listOf: "{name}'s list", list: 'List', viewSuffix: ' · view', family: '👥 Sharing',
   myShoppingList: 'My Lists', shoppingListOf: "{name}'s Lists",
+  installApp: 'Install app', installIos: 'To install: tap the Share button, then “Add to Home Screen”.', installOther: 'To install: open your browser menu and choose “Install app” or “Add to Home screen”.',
   signOut: 'Sign out', hi: 'Hi, {name}',
   createdOn: 'Created {date} at {time}',
   userMenu: 'Your account', profile: 'Profile', saveProfile: 'Save', profileSaved: 'Saved ✓', resetPassword: 'Change password', pwResetSent: 'We sent a link to {email} to set a new password.',
@@ -182,6 +183,7 @@ const AR = {
 
   myList: 'قائمتي', listOf: 'قائمة {name}', list: 'قائمة', viewSuffix: ' · عرض', family: '👥 المشاركة',
   myShoppingList: 'قوائمي', shoppingListOf: 'قوائم {name}',
+  installApp: 'تثبيت التطبيق', installIos: 'للتثبيت: اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».', installOther: 'للتثبيت: افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».',
   signOut: 'تسجيل الخروج', hi: 'مرحبًا، {name}',
   createdOn: 'أُنشئت في {date} الساعة {time}',
   userMenu: 'حسابك', profile: 'الملف الشخصي', saveProfile: 'حفظ', profileSaved: 'تم الحفظ ✓', resetPassword: 'تغيير كلمة المرور', pwResetSent: 'أرسلنا رابطًا إلى {email} لتعيين كلمة مرور جديدة.',
