@@ -11,23 +11,10 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic, normDigits, AR_KEYWORDS } from "./i18n.js?v=26";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=26";
 import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=26";
+import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=26";
 applyStatic();
-const CATS = [
-  {id:'produce', label:'Fruit & Veg', e:'🥬'},
-  {id:'dairy', label:'Dairy & Eggs', e:'🥛'},
-  {id:'meat', label:'Meat & Fish', e:'🍗'},
-  {id:'bakery', label:'Bakery', e:'🍞'},
-  {id:'pantry', label:'Pantry', e:'🥫'},
-  {id:'frozen', label:'Frozen', e:'🧊'},
-  {id:'drinks', label:'Drinks', e:'🧃'},
-  {id:'snacks', label:'Snacks', e:'🍫'},
-  {id:'household', label:'Household', e:'🧻'},
-  {id:'personal', label:'Personal care', e:'🧴'},
-  {id:'baby', label:'Baby', e:'🍼'},
-  {id:'other', label:'Other', e:'📦'},
-];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 // ---- list types: each type has its own sections and suggestions ----
 const tl = (key, vars) => { const s=(TYPE_TEXT[lang]||TYPE_TEXT.en)[key] ?? TYPE_TEXT.en[key]; return s==null ? t(key,vars) : (vars ? s.replace(/\{(\w+)\}/g,(_,k)=>vars[k]??'') : s); };
@@ -38,41 +25,7 @@ const curCats = () => curType()==='shopping' ? CATS : TYPES[curType()].cats;
 const catOf = id => curCats().find(c=>c.id===id) || curCats().find(c=>c.id==='other');
 const catLabel = c => curType()==='shopping' ? t('cat_'+c.id) : (curType()==='general' ? tl('cat_general_other') : (c.id==='other' ? t('cat_other') : tl('cat_'+c.id)));
 const typeSuggestions = () => { const ty=curType(); const src = ty==='shopping' ? SHOP_SUG : (TYPES[ty].sug||{}); return src[lang] || src.en || []; };
-const KEYWORDS = {
-  produce:'apple banana orange lemon lime tomato potato onion garlic cucumber lettuce carrot pepper spinach parsley mint coriander cilantro fruit veg vegetable grape mango avocado zucchini eggplant date dates berries strawberr watermelon melon herbs ginger',
-  dairy:'milk laban yogurt yoghurt cheese butter cream egg eggs labneh halloumi feta',
-  meat:'chicken beef lamb meat mince fish shrimp salmon tuna steak sausage turkey camel',
-  bakery:'bread bun buns pita samoon croissant cake tortilla toast muffin',
-  pantry:'rice pasta flour sugar salt oil olive spice spices cumin tea coffee beans lentil lentils sauce ketchup mayo honey jam cereal oats vinegar tahini hummus noodles',
-  frozen:'frozen ice cream icecream peas nuggets fries',
-  drinks:'water juice soda cola pepsi drink drinks',
-  snacks:'chips chocolate biscuit biscuits cookies nuts snack snacks candy popcorn',
-  household:'tissue tissues toilet paper detergent soap dish bleach bag bags foil cleaner sponge napkins',
-  personal:'shampoo toothpaste toothbrush deodorant lotion conditioner razor',
-  baby:'diaper diapers nappies wipes formula baby',
-};
-function guessCat(name){
-  const ty = curType();
-  if (ty!=='shopping') return guessTypeCat(name, TYPES[ty]);
-  const w = name.toLowerCase();
-  for (const [cat, list] of Object.entries(KEYWORDS)){
-    for (const k of list.split(' ')) if (k && new RegExp('\\b'+k).test(w)) return cat;
-  }
-  // Arabic: match a word that starts with the keyword, with or without "ال"
-  const words = w.split(/\s+/).map(x=>x.replace(/^(و|ب|ل)?ال/, ''));
-  for (const [cat, list] of Object.entries(AR_KEYWORDS)){
-    for (const k of list.split(' ')) if (k && words.some(x=>x.startsWith(k.replace(/^ال/,'')))) return cat;
-  }
-  return 'other';
-}
-
-function guessTypeCat(name, T){
-  const w = name.toLowerCase(), kw=T.kw||{};
-  for (const [cat, list] of Object.entries(kw.en||{})) for (const k of list.split(' ')) if (k && new RegExp('\\b'+k).test(w)) return cat;
-  const words = w.split(/\s+/).map(x=>x.replace(/^(و|ب|ل)?ال/, ''));
-  for (const [cat, list] of Object.entries(kw.ar||{})) for (const k of list.split(' ')) if (k && words.some(x=>x.startsWith(k.replace(/^ال/,'')))) return cat;
-  return 'other';
-}
+const guessCat = name => guessCatFor(name, curType());
 
 // ---- state ----
 let db=null, user=null, me=null, items=new Map(), recent=[], mode='plan', pickedCat=null, offline=false;
@@ -102,23 +55,16 @@ function localOnly(){ return !db; }
 
 // ---- permissions: can this person change the list they're looking at? ----
 // access is per list: the owner decides, list by list, who can view or edit it
-function myRoleOn(o, lid){ if(!o || o===uid) return 'owner'; const p=sharedWithMe.find(x=>x.uid===o); const r=p && p.lists ? p.lists[lid===undefined?listId:lid] : null; return r==='edit'||r==='view' ? r : 'none'; }
-function canEdit(){ const r=myRoleOn(owner); return r==='owner' || r==='edit'; }
-const sharesWithMe = p => !!(p && p.lists && Object.keys(p.lists).length);
+function myRoleOn(o, lid){ return roleOn(sharedWithMe, uid, o, lid===undefined?listId:lid); }
+function canEdit(){ return roleCanEdit(myRoleOn(owner)); }
 function viewOnly(){ setStatus(t('viewOnlyMsg'), true); }
 
 async function addItem(raw){
   if (!hasList()) return;
   if(!canEdit()) return viewOnly();
-  let text = normDigits(raw).trim(); if(!text) return;
-  let desc = '';
-  const dm = text.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-  if (dm){ text = dm[1].trim(); desc = dm[2].trim().slice(0,120); }
-  let qty = 1;
-  const m = text.match(/^(\d+)\s*[x×]?\s+(.+)$/i) || text.match(/^(.+?)\s+[x×]?\s*(\d+)$/i);
-  if (m){ if (/^\d+$/.test(m[1])){ qty=+m[1]; text=m[2]; } else { text=m[1]; qty=+m[2]; } }
-  text = text.charAt(0).toUpperCase()+text.slice(1);
-  const existing = [...items.values()].find(i=>!i.done && i.name.toLowerCase()===text.toLowerCase());
+  const parsed = parseItemText(raw); if(!parsed) return;
+  const text = parsed.name, qty = parsed.qty, desc = parsed.note;
+  const existing = findOpenDuplicate(items.values(), text);
   if (existing){
     if (desc && !existing.note){ items.set(existing.id,{...existing,note:desc}); if(!localOnly()) write('items/'+existing.id, ()=>db.doc('items/'+existing.id).update({note:desc})); }
     return changeQty(existing.id, existing.qty+qty);
@@ -142,7 +88,6 @@ function toggle(id){
   logHistory(it, done, doneAt || it.doneAt);
 }
 // ---- automatic trips: every ticked item goes into that day's trip ----
-function dayKey(t){ const d=new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function logHistory(it, done, t){
   const key = 'd-'+dayKey(t||Date.now());
   const entry = done ? {name:it.name, qty:it.qty, cat:it.cat, note:it.note||'', by:me||null, at:t} : deleteField();
@@ -180,13 +125,8 @@ function removeItem(id){
 }
 function remember(list){
   if(!canEdit()) return;
-  let changed=false;
-  for (const it of list){
-    const k = it.name.toLowerCase();
-    recent = recent.filter(r=>r.name.toLowerCase()!==k);
-    recent.unshift({name:it.name, cat:it.cat}); changed=true;
-  }
-  recent = recent.slice(0,30);
+  const changed = list.length>0;
+  recent = mergeRecent(recent, list);
   if (changed && !localOnly()){ const r=recent.slice(); write('meta/recent', ()=>db.doc('meta/recent').set({items:r})); }
 }
 function clearDone(){
@@ -283,8 +223,6 @@ function renderNoLists(){
 // ---- search ----
 let itemQuery='', listQuery='', listSearchOpen=false;
 // forgiving match: ignores case, Arabic vowel marks and the common letter variants (أ إ آ ا, ة ه, ى ي)
-const normQ = s => normDigits(String(s||'')).toLowerCase().replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').trim();
-const matches = (text, q) => { const n=normQ(text); return normQ(q).split(/\s+/).every(w=>n.includes(w)); };
 function itemMatches(i){ return !itemQuery || matches(i.name+' '+(i.note||''), itemQuery); }
 function renderSearchBar(){
   const btn=$('searchBtn'); if(btn) btn.classList.toggle('hidden', !hasList());
@@ -408,10 +346,7 @@ function render(){
   }
 
   if (todo.length){
-    const cats=curCats(), known=new Set(cats.map(c=>c.id));
-    for (const c of cats){
-      const list = todo.filter(i=>(known.has(i.cat)?i.cat:'other')===c.id).sort((a,b)=>a.name.localeCompare(b.name, lang));
-      if (!list.length) continue;
+    for (const {cat:c, items:list} of groupBySection(todo, curCats(), lang)){
       const g = el('div','group');
       const gh = el('div','gh', c.e+' '+catLabel(c)); gh.appendChild(el('span','n',String(list.length)));
       g.appendChild(gh);
@@ -426,7 +361,7 @@ function render(){
   if (done.length){
     main.appendChild(el('div','label',tw('inCart',{n:done.length})));
     const g = el('div','group');
-    done.sort((a,b)=>a.name.localeCompare(b.name, lang)).forEach(i=>g.appendChild(itemRow(i)));
+    done.sort(byName(lang)).forEach(i=>g.appendChild(itemRow(i)));
     main.appendChild(g);
     const clr = el('button','clear',t('clearChecked')); clr.onclick=clearDone;
     if (!ro && !itemQuery) main.appendChild(clr);
@@ -617,7 +552,6 @@ let swDocs=[], invDocs=[], swLoaded=false, invLoaded=false, swCache=false, invCa
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
 let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}, mainDateFixed=false;
 const pendingLists = new Set();
-const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 const mainCustom = () => !!(mainInfo.name || mainInfo.emoji!=='🛒' || (mainInfo.type && mainInfo.type!=='shopping'));
 const mainEntry = () => ({id:'main', name:mainInfo.name||t('mainList'), emoji:mainInfo.emoji||'🛒', description:mainInfo.description||'', type:mainInfo.type||'shopping', createdAt:mainInfo.createdAt||0});
 const fmtCreated = ts => { if(!ts) return ''; const d=new Date(ts); return t('createdOn',{date:d.toLocaleDateString(dateLocale,{day:'numeric', month:'long', year:'numeric'}), time:d.toLocaleTimeString(dateLocale,{hour:'numeric', minute:'2-digit'})}); };
@@ -883,7 +817,15 @@ function renderUserMenu(){
   const site=el('a','u-item',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
   const out=el('button','u-item danger','↩ '+t('signOut')); out.type='button'; out.id='uSignOut';
   out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
-  menu.append(reset, lang, site, out); box.appendChild(menu);
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const inst=el('button','u-item','📲 '+t('installApp')); inst.type='button'; inst.id='uInstall';
+  inst.onclick=async()=>{
+    const p=window._installPrompt;
+    if (p){ window._installPrompt=null; try{ await p.prompt(); await p.userChoice; }catch(e){} return closeUserMenu(); }
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    U.msg=t(ios?'installIos':'installOther'); U.err=''; renderUserMenu();
+  };
+  menu.append(reset, lang, ...(standalone?[]:[inst]), site, out); box.appendChild(menu);
   const close=el('button','btn u-close',t('close')); close.type='button'; close.onclick=closeUserMenu; box.appendChild(close);
   wrap.appendChild(box);
 }
@@ -944,8 +886,7 @@ function openList(o, lid){
         mainInfo.createdAt=ts;
         setDoc(doc(fs,'ulists/'+o+'/lists/main'), {createdAt:ts, main:true}, {merge:true}).catch(()=>{});
       }
-      lists = snap.docs.filter(d=>d.id!=='main').map(d=>parseList(d.id, d.data()||{}))
-        .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+      lists = sortLists(snap.docs.filter(d=>d.id!=='main').map(d=>parseList(d.id, d.data()||{})), lang);
       if (!snap.metadata || !snap.metadata.fromCache) listsLoaded=true;
       afterLists();
     }, ()=>{}));
@@ -958,8 +899,7 @@ function openList(o, lid){
     const rebuild = ()=>{
       if (o!==owner) return;
       if (shared.main) mainInfo = parseMain(metas.main||{});
-      lists = ids.filter(id=>id!=='main' && metas[id]).map(id=>parseList(id, metas[id]))
-        .sort((a,b)=>a.createdAt-b.createdAt || a.name.localeCompare(b.name, lang));
+      lists = sortLists(ids.filter(id=>id!=='main' && metas[id]).map(id=>parseList(id, metas[id])), lang);
       listsLoaded = seen.size>=ids.length;
       afterLists();
     };
@@ -986,13 +926,11 @@ function openList(o, lid){
   unsubs.push(db.collection('trips').onSnapshot(snap=>{
     if (o!==owner || myList!==listId) return;
     tripIds = snap.docs.map(d=>d.id);
-    trips = snap.docs.map(d=>{ const v=d.data()||{};
+    trips = sortTrips(snap.docs.map(d=>{ const v=d.data()||{};
       const raw = Array.isArray(v.items) ? v.items.map((i,n)=>[String(n),i]) : Object.entries(v.items||{});
-      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:String(i.cat||'other'), note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}))
-        .sort((a,b)=>a.at-b.at);
+      const list = raw.filter(([k,i])=>i&&i.name).map(([k,i])=>({key:k, name:String(i.name), qty:Math.max(1,+i.qty||1), cat:String(i.cat||'other'), note:String(i.note||''), by:i.by?String(i.by):(v.by?String(v.by):null), at:+i.at||0}));
       const last = list.reduce((m,i)=>Math.max(m,i.at), 0) || +v.at || 0;
-      return {id:d.id, at:last, items:list}; })
-      .filter(t=>t.items.length).sort((a,b)=>b.at-a.at);
+      return {id:d.id, at:last, items:list}; }));
     if (!editing && mode==='trips') render();
   }, ()=>{}));
   unsubs.push(db.doc('meta/recent').onSnapshot(snap=>{
@@ -1014,7 +952,7 @@ async function loadMyLists(){
     const md = snap.docs.find(d=>d.id==='main'), mv = md ? (md.data()||{}) : {};
     const out = mv.deleted ? [] : [{id:'main', name:mv.name||t('mainList'), emoji:LIST_ICONS.includes(mv.emoji)?mv.emoji:'🛒'}];
     for (const d of snap.docs){ if(d.id==='main') continue; const v=d.data()||{}; out.push({id:d.id, name:String(v.name||t('list')), emoji:LIST_ICONS.includes(v.emoji)?v.emoji:'🛒', createdAt:+v.createdAt||0}); }
-    myListsCache = out.sort((a,b)=>(a.id==='main'?-1:b.id==='main'?1:(a.createdAt||0)-(b.createdAt||0)));
+    myListsCache = sortMyLists(out);
     if (famOpen) renderFamily();
   }catch(e){}
 }
@@ -1169,7 +1107,7 @@ function renderFamily(msg, ok){
 }
 async function addMember(email){
   email=(email||'').trim().toLowerCase();
-  if(!email || !/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)) return renderFamily(t('errEmail'));
+  if(!email || !isEmail(email)) return renderFamily(t('errEmail'));
   if(email===myEmail) return renderFamily(t('fOwn'));
   const known=famPeople().find(p=>p.canEditMine && p.email===email);
   if(known) return renderFamily(t('fAlready',{name:known.name}), true);
