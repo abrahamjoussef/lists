@@ -38,7 +38,9 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == owner;
     }
     // items, history and suggestions of an extra list
-    match /ulists/{owner}/lists/{lid}/{rest=**} {
+    // ({sub} makes sure this never matches the list document itself, which {rest=**} alone would:
+    // that let editors rename or delete a list)
+    match /ulists/{owner}/lists/{lid}/{sub}/{rest=**} {
       allow read: if signedIn() && canRead(owner, lid);
       allow write: if signedIn() && canWrite(owner, lid);
     }

@@ -1,0 +1,15 @@
+{
+  "name": "shared-lists",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling only: the app itself has no build step and no dependencies.",
+  "scripts": {
+    "test": "node --test tests/logic.test.js",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-lists \"node --test tests/rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.37.0"
+  }
+}
