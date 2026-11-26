@@ -11,9 +11,9 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot as fsSnap } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=26";
-import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=26";
-import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=26";
+import { t, lang, isAr, dateLocale, itemsCount, itemsAdded, setLang, applyStatic } from "./i18n.js?v=27";
+import { TYPES, TYPE_IDS, TYPE_TEXT, SHOP_SUG } from "./types.js?v=27";
+import { CATS, parseItemText, findOpenDuplicate, guessCat as guessCatFor, groupBySection, byName, sortLists, sortMyLists, sortTrips, mergeRecent, roleOn, roleCanEdit, sharesWithMe, isEmail, listBase, dayKey, normQ, matches } from "./logic.js?v=27";
 applyStatic();
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 // ---- list types: each type has its own sections and suggestions ----
@@ -512,9 +512,11 @@ function authMsg(e){
   if(c.includes('operation-not-allowed')) return t('errDisabled');
   return t('errGeneric');
 }
+// invited: the email from an invite link (?invite=name@example.com), or '' when not invited
 function showLanding(invited){
   $('inviteNote').classList.toggle('hidden', !invited);
-  setAuthMode(store('shopRegistered') ? 'signin' : 'register');
+  setAuthMode(store('shopRegistered') && !invited ? 'signin' : 'register');
+  if (invited && !$('aEmail').value) $('aEmail').value = invited;
   $('auth').classList.remove('hidden');
 }
 $('landLang').onclick=()=>setLang(isAr?'en':'ar');
@@ -544,7 +546,9 @@ $('authForm').addEventListener('submit', async e=>{
 });
 
 // ---- family: own list + lists shared with me ----
-let sharedLoaded=false, fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, myAccess={};
+let sharedLoaded=false, fs=null, uid=null, myEmail='', owner=null, unsubs=[], sharedWithMe=[], myFamily={}, familyEmails={}, myAccess={}, myInvites={};
+// what others share with me = their sharedWithMe docs + invites sent to my email before I had an account
+let swDocs=[], invDocs=[], swLoaded=false, invLoaded=false, swCache=false, invCache=false, openInvite=false;
 // several lists per person: 'main' lives at ulists/{owner}/, the rest at ulists/{owner}/lists/{id}/
 let listId='main', lists=[], tripIds=[], curBase='', listsLoaded=false, mainInfo={name:'', emoji:'🛒', description:'', createdAt:0, deleted:false}, mainDateFixed=false;
 const pendingLists = new Set();
@@ -953,11 +957,12 @@ async function loadMyLists(){
   }catch(e){}
 }
 // an email the owner can send from their own mail app to tell someone what they can open
-function mailtoFor(name, email, grants){
-  const app = location.origin + location.pathname.replace(/[^/]*$/, '');
+// pending: they have no account yet, so the link opens the invite landing page with their email filled in
+function mailtoFor(name, email, grants, pending){
+  const app = location.origin + location.pathname.replace(/[^/]*$/, '') + (pending ? '?invite='+encodeURIComponent(email||'') : '');
   const lines = grants.map(g=>'• '+g.emoji+' '+g.name+' — '+(g.role==='view'?t('viewOnly'):t('canEdit')));
   const subject = t('mailSubject',{name:me});
-  const body = t('mailBody',{name:name||'', me, lists:lines.join('\n'), link:app, email:email||''});
+  const body = t(pending ? 'mailBodyNew' : 'mailBody',{name:name||'', me, lists:lines.join('\n'), link:app, email:email||''});
   return 'mailto:'+encodeURIComponent(email||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
 }
 const ICON = {
@@ -977,6 +982,8 @@ function famPeople(){
   const map=new Map();
   for (const [fid,fname] of Object.entries(myFamily)) map.set(fid,{uid:fid, name:String(fname||t('familyMember')), email:String(familyEmails[fid]||''), canEditMine:true, access:myAccess[fid]||{}, sharedWithMe:false});
   for (const p of sharedWithMe){ if(!sharesWithMe(p) && !myFamily[p.uid]) continue; const x=map.get(p.uid)||{uid:p.uid, name:p.name, email:'', canEditMine:false, access:{}}; x.name=p.name||x.name; x.email=p.email||x.email; x.sharedWithMe=sharesWithMe(p); map.set(p.uid,x); }
+  // invited by email, no account yet
+  for (const [em,inv] of Object.entries(myInvites||{})){ if(!inv) continue; const id='invite:'+em; map.set(id,{uid:id, name:em, email:'', inviteEmail:em, pending:true, canEditMine:true, access:inv.lists||{}, sharedWithMe:false}); }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name, lang));
 }
 function closeFamily(){ famOpen=false; famMsg=''; famConfirm=null; const s=$('famSheet'); if(s) s.remove(); document.body.style.overflow=''; document.removeEventListener('keydown', famKeys); }
@@ -1024,7 +1031,7 @@ function renderFamily(msg, ok){
   form.onsubmit=e=>{ e.preventDefault(); if(!famBusy) addMember(inp.value); };
   card.appendChild(form);
   if(famMsg){ const a=el('div','fam-alert '+(famOk?'ok':'err')); a.setAttribute('role','status'); a.appendChild(iconEl(famOk?'ok':'err')); a.appendChild(el('span','msg',famMsg)); card.appendChild(a); }
-  if(famMail){ const m=el('a','btn btn-soft fam-mail','✉️ '+t('emailThem',{name:famMail.name})); m.id='famMailBtn'; m.href=mailtoFor(famMail.name, famMail.email, famMail.grants); m.target='_blank'; m.rel='noopener'; card.appendChild(m); }
+  if(famMail){ const m=el('a','btn btn-soft fam-mail','✉️ '+t('emailThem',{name:famMail.name||famMail.email})); m.id='famMailBtn'; m.href=mailtoFor(famMail.name, famMail.email, famMail.grants, famMail.pending); m.target='_blank'; m.rel='noopener'; card.appendChild(m); }
   body.appendChild(card);
 
   // members
@@ -1048,7 +1055,7 @@ function renderFamily(msg, ok){
       const bd=el('div','badges');
       const nAcc=Object.keys(p.access||{}).length;
       const b1=el('span','badge2'+(nAcc?' on':'')); if(nAcc) b1.appendChild(iconEl('check')); b1.append(nAcc ? t(nAcc===1?'bOneList':'bLists',{n:nAcc}) : t('bNoLists'));
-      const b2=el('span','badge2'+(p.sharedWithMe?' on':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.sharedWithMe?t('bShared'):t('bNotShared'));
+      const b2=el('span','badge2'+(p.sharedWithMe?' on':'')+(p.pending?' pending':'')); if(p.sharedWithMe) b2.appendChild(iconEl('check')); b2.append(p.pending?t('bPending'):p.sharedWithMe?t('bShared'):t('bNotShared'));
       bd.append(b1,b2); m.appendChild(bd);
       // which of my lists this person can open
       if(p.canEditMine && famConfirm!==p.uid){
@@ -1063,22 +1070,22 @@ function renderFamily(msg, ok){
           for(const [val,lab] of [['',t('accNone')],['view',t('accView')],['edit',t('accEdit')]]){
             const b=el('button','seg-b'+(cur===val?' on':''),lab); b.type='button'; b.dataset.role=val||'none';
             b.setAttribute('role','radio'); b.setAttribute('aria-checked',cur===val?'true':'false');
-            b.onclick=()=>{ if(cur!==val) setListAccess(p.uid,p.name,p.email,l,val); };
+            b.onclick=()=>{ if(cur===val) return; if(p.pending) setInviteAccess(p.inviteEmail,l,val); else setListAccess(p.uid,p.name,p.email,l,val); };
             seg.appendChild(b);
           }
           row.appendChild(seg); box.appendChild(row);
         }
         if(nAcc){ const grants=mine.filter(l=>(p.access||{})[l.id]).map(l=>({name:l.name, emoji:l.emoji, role:p.access[l.id]}));
-          const m2=el('a','acc-mail','✉️ '+t('emailThem',{name:p.name})); m2.href=mailtoFor(p.name,p.email,grants); m2.target='_blank'; m2.rel='noopener'; box.appendChild(m2); }
+          const m2=el('a','acc-mail','✉️ '+t('emailThem',{name:p.name})); m2.href=p.pending ? mailtoFor('',p.inviteEmail,grants,true) : mailtoFor(p.name,p.email,grants); m2.target='_blank'; m2.rel='noopener'; box.appendChild(m2); }
         m.appendChild(box);
       }
 
       if(famConfirm===p.uid){
         const c=el('div','confirm');
-        c.appendChild(el('div',null,t('confirmRemove',{name:p.name})));
+        c.appendChild(el('div',null,p.pending ? t('confirmCancelInvite',{email:p.inviteEmail}) : t('confirmRemove',{name:p.name})));
         const r=el('div','row2');
         const cancel=el('button','btn',t('cancel')); cancel.type='button'; cancel.onclick=()=>{ famConfirm=null; renderFamily(); };
-        const yes=el('button','btn btn-danger-solid',t('remove')); yes.type='button'; yes.onclick=()=>{ famConfirm=null; removeMember(p.uid,p.name); };
+        const yes=el('button','btn btn-danger-solid',t('remove')); yes.type='button'; yes.onclick=()=>{ famConfirm=null; if(p.pending) removeInvite(p.inviteEmail); else removeMember(p.uid,p.name); };
         r.append(cancel,yes); c.appendChild(r); m.appendChild(c);
       } else {
         const acts=el('div','acts');
@@ -1104,10 +1111,11 @@ async function addMember(email){
   if(email===myEmail) return renderFamily(t('fOwn'));
   const known=famPeople().find(p=>p.canEditMine && p.email===email);
   if(known) return renderFamily(t('fAlready',{name:known.name}), true);
+  if(myInvites[email]) return renderFamily(t('fAlreadyInvited',{email}), true);
   famBusy=true; renderFamily('');
   try{
     const snap=await getDoc(doc(fs,'emails/'+email));
-    if(!snap.exists()){ famBusy=false; return renderFamily(t('fNoAccount')); }
+    if(!snap.exists()){ famBusy=false; await inviteByEmail(email, famInviteRole); const i=$('famEmail'); if(i) i.value=''; return; }
     const p=snap.data();
     if(myFamily[p.uid]){ famBusy=false; return renderFamily(t('fAlready',{name:p.name||t('they')}), true); }
     famBusy=false;
@@ -1129,6 +1137,53 @@ async function shareWith(fid, fname, femail, role){
     renderFamily(l ? t(role==='view'?'fListView':'fListEdit',{name:fname||t('they'), list:l.name}) : t('fAdded',{name:fname||t('they')}), true);
   }catch(e){ renderFamily(t('fShareFail')); }
 }
+// no account uses that email yet: save an invite. It is kept in two places:
+//  users/{me}.invites[email].lists — what Firestore rules check, so they can open the lists as soon as they register
+//  invites/{email}/from/{me}       — what their app reads to find out who invited them
+async function inviteByEmail(email, role){
+  role = role==='view' ? 'view' : 'edit';
+  const l = owner===uid && hasList() ? allLists().find(x=>x.id===listId) : null;
+  const lists = l ? {[l.id]:role} : {}, at = Date.now();
+  try{
+    await setDoc(doc(fs,'users/'+uid), {invites:{[email]:{lists, at}}}, {merge:true});
+    await setDoc(doc(fs,'invites/'+email+'/from/'+uid), {name:me, email:myEmail, lists, at}, {merge:true});
+    famMail = l ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
+    renderFamily(l ? t('fInvited',{email, list:l.name}) : t('fInvitedNone',{email}), true);
+  }catch(e){ renderFamily(t('fShareFail')); }
+}
+async function setInviteAccess(email, l, role){
+  const v = role==='edit'||role==='view' ? role : deleteField();
+  try{
+    await setDoc(doc(fs,'users/'+uid), {invites:{[email]:{lists:{[l.id]:v}}}}, {merge:true});
+    await setDoc(doc(fs,'invites/'+email+'/from/'+uid), {name:me, email:myEmail, lists:{[l.id]:v}}, {merge:true});
+    famMail = role ? {name:'', email, grants:[{name:l.name, emoji:l.emoji, role}], pending:true} : null;
+    renderFamily(t(!role?'fListNone':role==='view'?'fListView':'fListEdit',{name:email, list:l.name}), true);
+  }catch(e){ renderFamily(t('fRoleFail')); }
+}
+async function removeInvite(email){
+  try{
+    await setDoc(doc(fs,'users/'+uid), {invites:{[email]:deleteField()}}, {merge:true});
+    await deleteDoc(doc(fs,'invites/'+email+'/from/'+uid));
+    famMail=null; renderFamily(t('fInviteRemoved',{email}), true);
+  }catch(e){ renderFamily(t('fRemoveFail')); }
+}
+// once an invited person has registered, turn their invite into a normal member (same lists, same roles)
+const invitesChecked = new Set();
+async function settleInvites(){
+  for (const [em,inv] of Object.entries(myInvites||{})){
+    if (!inv || invitesChecked.has(em)) continue;
+    invitesChecked.add(em);
+    try{
+      const s = await getDoc(doc(fs,'emails/'+em));
+      const p = s.exists() ? (s.data()||{}) : null;
+      if (!p || !p.uid || p.uid===uid) continue;
+      const lists = inv.lists||{}, name = String(p.name||em.split('@')[0]);
+      await setDoc(doc(fs,'users/'+uid), {family:{[p.uid]:name}, familyEmails:{[p.uid]:em}, access:{[p.uid]:lists}, invites:{[em]:deleteField()}}, {merge:true});
+      await setDoc(doc(fs,'users/'+p.uid+'/sharedWithMe/'+uid), {name:me, email:myEmail, lists, at:Date.now()}, {merge:true});
+      await deleteDoc(doc(fs,'invites/'+em+'/from/'+uid));
+    }catch(e){ invitesChecked.delete(em); }
+  }
+}
 async function setListAccess(fid, fname, femail, l, role){
   const v = role==='edit'||role==='view' ? role : deleteField();
   try{
@@ -1147,6 +1202,13 @@ async function dropListAccess(lid){
       await setDoc(doc(fs,'users/'+fid+'/sharedWithMe/'+uid), {lists:{[lid]:deleteField()}}, {merge:true});
     }catch(e){}
   }
+  for (const [em,inv] of Object.entries(myInvites||{})){
+    if (!inv || !inv.lists || !inv.lists[lid]) continue;
+    try{
+      await setDoc(doc(fs,'users/'+uid), {invites:{[em]:{lists:{[lid]:deleteField()}}}}, {merge:true});
+      await setDoc(doc(fs,'invites/'+em+'/from/'+uid), {lists:{[lid]:deleteField()}}, {merge:true});
+    }catch(e){}
+  }
 }
 async function removeMember(fid, fname){
   try{
@@ -1156,6 +1218,29 @@ async function removeMember(fid, fname){
   }catch(e){ renderFamily(t('fRemoveFail')); }
 }
 
+// combine what people shared with me directly and what they invited my email to before I registered
+function applyShared(){
+  const key = o => JSON.stringify(((sharedWithMe.find(x=>x.uid===o)||{}).lists)||{});
+  const before = owner && owner!==uid ? key(owner) : null;
+  const all = new Map();
+  for (const x of invDocs) all.set(x.uid, x);
+  for (const x of swDocs){ const i=all.get(x.uid); all.set(x.uid, i ? {...x, lists:{...i.lists, ...x.lists}} : x); }
+  sharedWithMe = [...all.values()];
+  if (!swLoaded || !invLoaded) return;   // wait for both
+  sharedLoaded = true;
+  if (openInvite && invDocs.length && !swCache && !invCache){
+    // just arrived from an invite link: open the list they were invited to
+    openInvite = false;
+    const p = invDocs[0], lid = p.lists.main ? 'main' : Object.keys(p.lists)[0];
+    if (owner!==p.uid) openList(p.uid, lid);
+  } else if (owner && owner!==uid){
+    const p = sharedWithMe.find(x=>x.uid===owner);
+    if (!sharesWithMe(p)){ if (!swCache && !invCache){ openList(uid); setStatus(t('noAccess'), true); } }
+    else if (key(owner)!==before) openList(owner, listId);   // what they share with me changed
+  }
+  renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
+}
+
 // ---- boot ----
 renderCatPick(); render();
 (async ()=>{
@@ -1163,7 +1248,9 @@ renderCatPick(); render();
     setStatus(t('setupNotFinished'), true);
     $('summary').textContent=t('notSyncing'); return;
   }
-  if (location.hash) window.history.replaceState(null,'',location.pathname);
+  const invitedEmail = (new URLSearchParams(location.search).get('invite')||'').trim().toLowerCase();
+  if (invitedEmail) openInvite = true;
+  if (location.hash || location.search) window.history.replaceState(null,'',location.pathname);
   const app = initializeApp(firebaseConfig);
   fs = initializeFirestore(app, { localCache: persistentLocalCache() });
   const auth = getAuth(app); window._auth = auth;
@@ -1171,7 +1258,7 @@ renderCatPick(); render();
 
   onAuthStateChanged(auth, async user=>{
     if (user && user.isAnonymous){ signOut(auth); return; }
-    if (!user){ if(!started) showLanding(false); return; }
+    if (!user){ if(!started) showLanding(invitedEmail); return; }
     if (started) return; started = true;
     $('auth').classList.add('hidden');
     uid = user.uid; myEmail = (user.email||'').toLowerCase();
@@ -1183,20 +1270,12 @@ renderCatPick(); render();
       if (myEmail) await setDoc(doc(fs,'emails/'+myEmail), {uid, name:me});
     }catch(e){}
     addToolbar();
-    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; myAccess=d.access||{}; renderSwitcher(); if(famOpen) renderFamily(); }, ()=>{});
-    fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{
-      const key = o => JSON.stringify(((sharedWithMe.find(x=>x.uid===o)||{}).lists)||{});
-      const before = owner && owner!==uid ? key(owner) : null;
-      sharedWithMe = s.docs.map(d=>{ const v=d.data()||{}; const ls={}; for (const [k,r] of Object.entries(v.lists||{})) if(r==='edit'||r==='view') ls[k]=r;
-        return {uid:d.id, name:String(v.name||t('familyMember')), email:String(v.email||''), lists:ls}; });
-      sharedLoaded = true;
-      if (owner && owner!==uid){
-        const p = sharedWithMe.find(x=>x.uid===owner);
-        if (!sharesWithMe(p)){ if (!s.metadata || !s.metadata.fromCache){ openList(uid); setStatus(t('noAccess'), true); } }
-        else if (key(owner)!==before) openList(owner, listId);   // what they share with me changed
-      }
-      renderSwitcher(); renderLists(); if(famOpen) renderFamily(); if(owner && owner!==uid && !editing) render();
-    }, ()=>{});
+    fsSnap(doc(fs,'users/'+uid), s=>{ const d=s.exists()?s.data():{}; myFamily=d.family||{}; familyEmails=d.familyEmails||{}; myAccess=d.access||{}; myInvites=d.invites||{}; renderSwitcher(); if(famOpen) renderFamily(); settleInvites(); }, ()=>{});
+    const parseShare = d => { const v=d.data()||{}; const ls={}; for (const [k,r] of Object.entries(v.lists||{})) if(r==='edit'||r==='view') ls[k]=r;
+      return {uid:d.id, name:String(v.name||t('familyMember')), email:String(v.email||''), lists:ls}; };
+    fsSnap(collection(fs,'users/'+uid+'/sharedWithMe'), s=>{ swDocs=s.docs.map(parseShare); swLoaded=true; swCache=!!(s.metadata && s.metadata.fromCache); applyShared(); }, ()=>{ swLoaded=true; applyShared(); });
+    if (myEmail) fsSnap(collection(fs,'invites/'+myEmail+'/from'), s=>{ invDocs=s.docs.map(parseShare).filter(sharesWithMe); invLoaded=true; invCache=!!(s.metadata && s.metadata.fromCache); applyShared(); }, ()=>{ invDocs=[]; invLoaded=true; applyShared(); });
+    else invLoaded=true;
     const last = store('shopOwner');
     openList(last && last!==uid ? last : uid);
   });

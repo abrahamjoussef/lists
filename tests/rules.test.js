@@ -143,3 +143,50 @@ describe('looking people up by email', () => {
     await assertFails(setDoc(doc(as('mum'), 'emails/owner@example.com'), { uid:'mum' }));
   });
 });
+
+describe('invites to people with no account yet', () => {
+  const withEmail = (uid, email) => env.authenticatedContext(uid, { email, firebase:{ sign_in_provider:'password' } }).firestore();
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users/owner'), { invites:{ 'gran@example.com':{ lists:{ trip:'edit', main:'view' } } } }, { merge:true });
+      await setDoc(doc(db, 'invites/gran@example.com/from/owner'), { name:'Owner', lists:{ trip:'edit', main:'view' } });
+    });
+  });
+  test('once registered with the invited email, they can open and edit what they were invited to', async () => {
+    const gran = withEmail('gran', 'gran@example.com');
+    await assertSucceeds(getDoc(doc(gran, 'ulists/owner/lists/trip')));
+    await assertSucceeds(setDoc(doc(gran, 'ulists/owner/lists/trip/items/i2'), { name:'Hat', qty:1 }));
+    await assertSucceeds(getDoc(doc(gran, 'ulists/owner/items/m1')));
+  });
+  test('the email matches whatever its letter case', async () => {
+    await assertSucceeds(getDoc(doc(withEmail('gran', 'Gran@Example.com'), 'ulists/owner/lists/trip/items/i1')));
+  });
+  test('view-only invites cannot edit, and other lists stay closed', async () => {
+    const gran = withEmail('gran', 'gran@example.com');
+    await assertFails(setDoc(doc(gran, 'ulists/owner/items/m2'), { name:'Tea', qty:1 }));
+    await assertFails(getDoc(doc(gran, 'ulists/owner/lists/secret/items/s1')));
+    await assertFails(setDoc(doc(gran, 'ulists/owner/lists/trip'), { name:'Mine now' }));
+  });
+  test('someone with a different email gets nothing', async () => {
+    await assertFails(getDoc(doc(withEmail('eve', 'eve@example.com'), 'ulists/owner/lists/trip')));
+    await assertFails(getDoc(doc(as('eve'), 'ulists/owner/lists/trip')));
+  });
+  test('only the invitee and the inviter can read an invite', async () => {
+    await assertSucceeds(getDocs(collection(withEmail('gran', 'gran@example.com'), 'invites/gran@example.com/from')));
+    await assertSucceeds(getDoc(doc(as('owner'), 'invites/gran@example.com/from/owner')));
+    await assertFails(getDocs(collection(withEmail('eve', 'eve@example.com'), 'invites/gran@example.com/from')));
+  });
+  test('only the inviter can write an invite, and not to their own email', async () => {
+    const owner = withEmail('owner', 'owner@example.com');
+    await assertSucceeds(setDoc(doc(owner, 'invites/new@example.com/from/owner'), { name:'Owner', lists:{} }));
+    await assertFails(setDoc(doc(owner, 'invites/owner@example.com/from/owner'), { lists:{} }));
+    await assertFails(setDoc(doc(as('mum'), 'invites/new@example.com/from/owner'), { lists:{} }));
+    await assertFails(setDoc(doc(withEmail('gran', 'gran@example.com'), 'invites/gran@example.com/from/owner'), { lists:{ secret:'edit' } }));
+  });
+  test('the invitee can clear their invite but cannot give themselves access', async () => {
+    const gran = withEmail('gran', 'gran@example.com');
+    await assertSucceeds(deleteDoc(doc(gran, 'invites/gran@example.com/from/owner')));
+    await assertFails(setDoc(doc(gran, 'users/owner'), { access:{ gran:{ secret:'edit' } } }, { merge:true }));
+  });
+});

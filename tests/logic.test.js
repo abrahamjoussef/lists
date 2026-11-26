@@ -212,6 +212,8 @@ describe('sharing: who may do what on a list', () => {
     assert.equal(isEmail('a@b'), false);
     assert.equal(isEmail('a b@c.d'), false);
     assert.equal(isEmail(''), false);
+    assert.equal(isEmail('a/b@c.d'), false);   // would break the Firestore path
+
   });
   test('where a list lives', () => {
     assert.equal(listBase('u1', 'main'), 'ulists/u1/');

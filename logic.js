@@ -1,6 +1,6 @@
 // Pure logic used by app.js: no page, no Firebase. Kept here so it can be tested (see tests/).
-import { normDigits, AR_KEYWORDS } from "./i18n.js?v=26";
-import { TYPES } from "./types.js?v=26";
+import { normDigits, AR_KEYWORDS } from "./i18n.js?v=27";
+import { TYPES } from "./types.js?v=27";
 
 // supermarket sections (shopping lists)
 export const CATS = [
@@ -108,7 +108,7 @@ export function roleOn(sharedWithMe, me, owner, lid){
 }
 export const roleCanEdit = r => r==='owner' || r==='edit';
 export const sharesWithMe = p => !!(p && p.lists && Object.keys(p.lists).length);
-export const isEmail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
+export const isEmail = s => /^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(s);
 // where a list lives in Firestore ('main' is the original list)
 export const listBase = (o, l) => 'ulists/'+o+'/' + (l && l!=='main' ? 'lists/'+l+'/' : '');
 
