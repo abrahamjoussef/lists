@@ -315,15 +315,15 @@ if (lang==='ar') apply('ar');
 const CUES=[
  [0.3,  'Meet Shared Lists. Lists you share with the people you choose.', 'هذي «قوائم مشتركة». قوائم تشاركها مع اللي تختارهم.'],
  [5.2,  'Everything it can do is right there on the welcome screen. Just tap Get started, and you\'re in.', 'كل مميزاته تشوفها من أول شاشة. اضغط «ابدأ الآن»، وتكون جاهز.'],
- [16.9, 'Add things the way you\'d say them. Two milk, full fat. It sorts out the rest.', 'اكتب الغرض مثل ما تقوله: حليب اثنين، كامل الدسم. والباقي عليه.'],
- [25.9, 'And it groups them into sections.', 'ويرتّبها في أقسام.'],
- [29.3, 'Tick things off as you go. Everyone you share with sees it straight away.', 'علّم على اللي خلّصته. واللي تشاركهم يشوفونه على طول.'],
- [36.2, 'Everything you finish is saved, so nothing gets lost.', 'وكل اللي تخلّصه ينحفظ في السجل.'],
- [40.9, 'Need a to-do list, one for packing, or a party? Pick a type, and you get the right sections and suggestions.', 'تحتاج قائمة مهام، أو تجهيز سفر، أو عزيمة؟ اختر النوع، ويطلع لك الأقسام والاقتراحات المناسبة.'],
- [53.9, 'Search to find any list, or anything in it.', 'وابحث عن أي قائمة، أو أي شي داخلها.'],
- [59.2, 'Share each list with whoever you like, and decide who can edit, and who can just look.', 'شارك كل قائمة مع اللي تبي، وحدّد مين يعدّل، ومين يشوف بس.'],
- [69.6, 'It speaks Arabic and English, too.', 'ويدعم العربي والإنجليزي.'],
- [75.0, 'It\'s free. Give it a try!', 'وهو مجاني. جرّبه الحين!']
+ [17.1, 'Add things the way you\'d say them. Two milk, full fat. It sorts out the rest.', 'اكتب الغرض مثل ما تقوله: حليب اثنين، كامل الدسم. والباقي عليه.'],
+ [26.2, 'And it groups them into sections.', 'ويرتّبها في أقسام.'],
+ [29.7, 'Tick things off as you go. Everyone you share with sees it straight away.', 'علّم على اللي خلّصته. واللي تشاركهم يشوفونه على طول.'],
+ [36.7, 'Everything you finish is saved, so nothing gets lost.', 'وكل اللي تخلّصه ينحفظ في السجل.'],
+ [41.4, 'Need a to-do list, one for packing, or a party? Pick a type, and you get the right sections and suggestions.', 'تحتاج قائمة مهام، أو تجهيز سفر، أو عزيمة؟ اختر النوع، ويطلع لك الأقسام والاقتراحات المناسبة.'],
+ [54.6, 'Search to find any list, or anything in it.', 'وابحث عن أي قائمة، أو أي شي داخلها.'],
+ [59.9, 'Share each list with whoever you like, and decide who can edit, and who can just look.', 'شارك كل قائمة مع اللي تبي، وحدّد مين يعدّل، ومين يشوف بس.'],
+ [70.3, 'It speaks Arabic and English, too.', 'ويدعم العربي والإنجليزي.'],
+ [75.9, 'It\'s free. Give it a try!', 'وهو مجاني. جرّبه الحين!']
 ];
 const TTS=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window) ? window.speechSynthesis : null;
 let voiceOn=true, subsOn=false;
@@ -353,7 +353,7 @@ function pickVoice(l){
 }
 if(TTS){ TTS.getVoices(); TTS.onvoiceschanged=()=>{ updateNote(); }; }
 function cueAt(t){ let i=-1; for(let k=0;k<CUES.length;k++){ if(t>=CUES[k][0]-0.05) i=k; } return i; }
-function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||79); }
+function cueEnd(i,dur){ return i+1<CUES.length ? CUES[i+1][0] : (dur||80); }
 const players=[]; const UTTS=[]; let speakTimer=0;
 function makeUtts(p,i){
   const text=CUES[i][lang==='ar'?2:1], v=pickVoice(lang); if(!v) return [];
