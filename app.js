@@ -879,7 +879,15 @@ function renderUserMenu(){
   const site=el('a','u-item',t('aboutApp')); site.href='about/'; site.target='_blank'; site.rel='noopener'; site.onclick=syncSiteLang;
   const out=el('button','u-item danger','↩ '+t('signOut')); out.type='button'; out.id='uSignOut';
   out.onclick=async()=>{ try{ await signOut(window._auth); }catch(e){} try{localStorage.removeItem('shopOwner')}catch(e){} location.reload(); };
-  menu.append(reset, lang, site, out); box.appendChild(menu);
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const inst=el('button','u-item','📲 '+t('installApp')); inst.type='button'; inst.id='uInstall';
+  inst.onclick=async()=>{
+    const p=window._installPrompt;
+    if (p){ window._installPrompt=null; try{ await p.prompt(); await p.userChoice; }catch(e){} return closeUserMenu(); }
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    U.msg=t(ios?'installIos':'installOther'); U.err=''; renderUserMenu();
+  };
+  menu.append(reset, lang, ...(standalone?[]:[inst]), site, out); box.appendChild(menu);
   const close=el('button','btn u-close',t('close')); close.type='button'; close.onclick=closeUserMenu; box.appendChild(close);
   wrap.appendChild(box);
 }
