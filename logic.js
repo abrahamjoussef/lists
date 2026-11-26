@@ -1,6 +1,6 @@
 // Pure logic used by app.js: no page, no Firebase. Kept here so it can be tested (see tests/).
-import { normDigits, AR_KEYWORDS } from "./i18n.js?v=28";
-import { TYPES } from "./types.js?v=28";
+import { normDigits, AR_KEYWORDS } from "./i18n.js?v=29";
+import { TYPES } from "./types.js?v=29";
 
 // supermarket sections (shopping lists)
 export const CATS = [
