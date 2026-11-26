@@ -85,7 +85,7 @@ const EN = {
   liveStopped: 'Live updates stopped. Reopen the app to reconnect.',
 
   famTitle: 'Sharing', famSub: 'Choose who can open each of your lists.',
-  searchItems: 'Search items', searchItemsPh: 'Search this list and its History…', searchLists: 'Search lists', noListMatches: 'No lists match', noMatches: 'No items match your search.', searchCount: '{n} found for “{q}”', searchCountHist: '{n} days with “{q}”',
+  searchItems: 'Search items', searchItemsPh: 'Search this list and its History…', searchLists: 'Search lists', alsoIn: 'Also found in:', noListMatches: 'No lists match', noMatches: 'No items match your search.', searchCount: '{n} found for “{q}”', searchCountHist: '{n} days with “{q}”',
   inviteTitle: 'Invite someone',
   inviteLeadList: 'Enter the email they registered with. They get “{list}” now; choose more lists below.', inviteLeadNone: 'Enter the email they registered with, then choose which of your lists they can open.',
   bOneList: 'Can open 1 of your lists', bLists: 'Can open {n} of your lists', bNoLists: 'No lists shared yet',
@@ -200,7 +200,7 @@ const AR = {
   liveStopped: 'توقفت التحديثات المباشرة. أعد فتح التطبيق لإعادة الاتصال.',
 
   famTitle: 'المشاركة', famSub: 'اختر من يمكنه فتح كل قائمة من قوائمك.',
-  searchItems: 'البحث في العناصر', searchItemsPh: 'ابحث في هذه القائمة وسجلها…', searchLists: 'البحث في القوائم', noListMatches: 'لا توجد قوائم مطابقة', noMatches: 'لا توجد عناصر مطابقة لبحثك.', searchCount: 'وُجد {n} لـ«{q}»', searchCountHist: '{n} يوم فيه «{q}»',
+  searchItems: 'البحث في العناصر', searchItemsPh: 'ابحث في هذه القائمة وسجلها…', searchLists: 'البحث في القوائم', alsoIn: 'موجود أيضًا في:', noListMatches: 'لا توجد قوائم مطابقة', noMatches: 'لا توجد عناصر مطابقة لبحثك.', searchCount: 'وُجد {n} لـ«{q}»', searchCountHist: '{n} يوم فيه «{q}»',
   inviteTitle: 'دعوة شخص',
   inviteLeadList: 'أدخل البريد الإلكتروني الذي سجّل به. سيحصل على «{list}» الآن، واختر قوائم أخرى في الأسفل.', inviteLeadNone: 'أدخل البريد الإلكتروني الذي سجّل به، ثم اختر أي قوائمك يمكنه فتحها.',
   bOneList: 'يمكنه فتح قائمة واحدة من قوائمك', bLists: 'يمكنه فتح {n} من قوائمك', bNoLists: 'لم تشارك معه أي قائمة بعد',
