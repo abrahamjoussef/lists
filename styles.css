@@ -321,3 +321,9 @@ html[lang=ar] h1{font-size:22px}
 .searchbar input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .searchbar input:focus,.lsearch input:focus{outline:2px solid var(--green);outline-offset:1px}
 .search-count{text-transform:none}
+/* item search: matches in the other lists */
+.also-in{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 2px 12px}
+.also-h{font-size:12.5px;font-weight:700;color:var(--muted,#5b6b61)}
+.also-chip{font-size:13px;padding:5px 10px;min-height:30px}
+.also-chip .em{font-size:14px}
+.search-btn.hidden{display:none}
