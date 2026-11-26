@@ -20,7 +20,7 @@ beforeEach(async () => {
   await env.clearFirestore();
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'users/owner'), { name:'Owner', family:{ mum:'Mum', dad:'Dad' }, access:ACCESS });
+    await setDoc(doc(db, 'users/owner'), { name:'Owner', members:{ mum:'Mum', dad:'Dad' }, access:ACCESS });
     await setDoc(doc(db, 'users/mum/sharedWithMe/owner'), { name:'Owner', lists:{ trip:'edit', main:'view' } });
     await setDoc(doc(db, 'emails/owner@example.com'), { uid:'owner', name:'Owner' });
     await setDoc(doc(db, 'ulists/owner/lists/trip'), { name:'Trip', type:'packing' });

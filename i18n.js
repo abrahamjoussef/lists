@@ -7,7 +7,7 @@ const EN = {
   docTitle: 'Shared Lists',
   langSwitch: 'عربي',
   loading: 'Loading…',
-  tabList: 'List', tabShop: 'Shop', tabHistory: 'History',
+  tabList: 'List', tabTick: 'Shop', tabHistory: 'History',
   addPlaceholder: 'Add an item… e.g. 2 milk - 1 L', add: 'Add', auto: '✨ Auto',
   editTitle: 'Edit item', name: 'Name', note: 'Description (brand, size, details)', optional: 'optional', descPh: 'e.g. lactose free, 1 L', listDesc: 'Description (optional)', listDescPh: 'e.g. For Friday’s dinner — budget 300 SAR', section: 'Section',
   delete: 'Delete', cancel: 'Cancel', save: 'Save', close: 'Close',
@@ -56,7 +56,7 @@ const EN = {
   viewOnlyTitle: '👁 View only', viewOnlyText: ' You can see {list} and its History, but not change it.',
   addAgain: 'Add again',
   emptyRo: 'This list is empty right now.',
-  emptyShop: 'The list is empty — switch to List to add items.',
+  emptyTick: 'The list is empty — switch to List to add items.',
   emptyPlan: 'Add your first item below. Anything you add shows up on both phones.',
   allDone: 'All done! Everything is in the cart.',
   inCart: 'In the cart ({n})', clearChecked: 'Clear checked items (they stay in History)',
@@ -65,8 +65,8 @@ const EN = {
   statTrips: 'trips', statMonth: 'this month', statTop: 'most bought',
   by: ' · by ', and: ' & ', addOne: '+ Add', addAll: 'Add all {n} items to the list',
 
-  myList: 'My list', listOf: "{name}'s list", list: 'List', viewSuffix: ' · view', family: '👥 Sharing',
-  myShoppingList: 'My Lists', shoppingListOf: "{name}'s Lists",
+  myList: 'My list', listOf: "{name}'s list", list: 'List', viewSuffix: ' · view',
+  myLists: 'My Lists', listsOf: "{name}'s Lists",
   installApp: 'Install app', installIos: 'To install: tap the Share button, then “Add to Home Screen”.', installOther: 'To install: open your browser menu and choose “Install app” or “Add to Home screen”.',
   signOut: 'Sign out', hi: 'Hi, {name}',
   createdOn: 'Created {date} at {time}',
@@ -79,13 +79,13 @@ const EN = {
   confirmDeleteList: 'Delete “{name}” with all its items and history? This can’t be undone.',
   listCreated: '“{name}” is ready — add your first item.', listDeleted: 'List deleted.', listGone: 'That list was deleted.',
   listCreateFail: "Couldn't create the list. Please try again.", editListAria: 'Edit {name}',
-  shoppingListName: '{list} · {name}',
-  familyBtn: 'Sharing', peopleNav: 'Whose lists', listsNav: 'Lists', editMainHint: 'The main list can be renamed but not deleted.',
+  listNameOf: '{list} · {name}',
+  sharingBtn: 'Sharing', peopleNav: 'Whose lists', listsNav: 'Lists', editMainHint: 'The main list can be renamed but not deleted.',
   cantReach: "Can't reach the list yet — showing what's on this phone. It will update when you're back online.",
   noAccess: 'You no longer have access to this list.',
   liveStopped: 'Live updates stopped. Reopen the app to reconnect.',
 
-  famTitle: 'Sharing', famSub: 'Choose who can open each of your lists.',
+  shareTitle: 'Sharing', shareSub: 'Choose who can open each of your lists.',
   searchItems: 'Search items', searchItemsPh: 'Search this list and its History…', searchLists: 'Search lists', alsoIn: 'Also found in:', noListMatches: 'No lists match', noMatches: 'No items match your search.', searchCount: '{n} found for “{q}”', searchCountHist: '{n} days with “{q}”',
   inviteTitle: 'Invite someone',
   inviteLeadList: 'Enter their email, even if they have no account yet. They get “{list}” now; choose more lists below.', inviteLeadNone: 'Enter their email, even if they have no account yet, then choose which of your lists they can open.',
@@ -105,7 +105,7 @@ const EN = {
   confirmRemove: "Remove {name}'s access to your list? They won't be able to see or edit it anymore.",
   remove: 'Remove', openTheirList: 'Open their lists', shareMyList: 'Add to my people',
   makeViewOnly: 'Make view only', allowEditing: 'Allow editing',
-  famNote: 'People only see the lists you choose for them. Each list can be view only or editable.',
+  shareNote: 'People only see the lists you choose for them. Each list can be view only or editable.',
   fOwn: "That's your own email. Enter the other person's email instead.",
   fAlready: '{name} already has access to your list.',
   fInvited: "{email} has no account yet, so we saved an invite. When they register with this email they'll see “{list}”.",
@@ -120,7 +120,7 @@ const EN = {
   fRoleView: '{name} can now only view your list.', fRoleEdit: '{name} can now edit your list.',
   fRoleFail: "Couldn't change their access. Please try again.",
   fRemoved: '{name} no longer has access to your list.', fRemoveFail: "Couldn't remove them. Please try again.",
-  they: 'They', familyMember: 'Someone',
+  they: 'They', someone: 'Someone',
   setupNotFinished: 'Setup not finished: paste your Firebase config at the top of app.js.', notSyncing: 'Not syncing',
 };
 
@@ -128,7 +128,7 @@ const AR = {
   docTitle: 'قوائم مشتركة',
   langSwitch: 'English',
   loading: 'جارٍ التحميل…',
-  tabList: 'القائمة', tabShop: 'التسوق', tabHistory: 'السجل',
+  tabList: 'القائمة', tabTick: 'التسوق', tabHistory: 'السجل',
   addPlaceholder: 'أضف غرضًا… مثال: ٢ حليب - ١ لتر', add: 'إضافة', auto: '✨ تلقائي',
   editTitle: 'تعديل الغرض', name: 'الاسم', note: 'الوصف (الماركة، الحجم، التفاصيل)', optional: 'اختياري', descPh: 'مثال: خالي اللاكتوز، ١ لتر', listDesc: 'الوصف (اختياري)', listDescPh: 'مثال: لعشاء يوم الجمعة — الميزانية ٣٠٠ ريال', section: 'القسم',
   delete: 'حذف', cancel: 'إلغاء', save: 'حفظ', close: 'إغلاق',
@@ -177,7 +177,7 @@ const AR = {
   viewOnlyTitle: '👁 عرض فقط', viewOnlyText: ' يمكنك رؤية {list} وسجلها، لكن لا يمكنك تعديلها.',
   addAgain: 'أضف مرة أخرى',
   emptyRo: 'هذه القائمة فارغة حاليًا.',
-  emptyShop: 'القائمة فارغة — انتقل إلى «القائمة» لإضافة أغراض.',
+  emptyTick: 'القائمة فارغة — انتقل إلى «القائمة» لإضافة أغراض.',
   emptyPlan: 'أضف أول عنصر بالأسفل. كل ما تضيفه يظهر على جوالات من تشاركهم.',
   allDone: 'تم! كل شيء في السلة.',
   inCart: 'في السلة ({n})', clearChecked: 'مسح الأغراض المحددة (تبقى في السجل)',
@@ -186,8 +186,8 @@ const AR = {
   statTrips: 'رحلات تسوق', statMonth: 'هذا الشهر', statTop: 'الأكثر شراءً',
   by: ' · بواسطة ', and: ' و', addOne: '+ إضافة', addAll: 'أضف كل الأغراض ({n}) إلى القائمة',
 
-  myList: 'قائمتي', listOf: 'قائمة {name}', list: 'قائمة', viewSuffix: ' · عرض', family: '👥 المشاركة',
-  myShoppingList: 'قوائمي', shoppingListOf: 'قوائم {name}',
+  myList: 'قائمتي', listOf: 'قائمة {name}', list: 'قائمة', viewSuffix: ' · عرض',
+  myLists: 'قوائمي', listsOf: 'قوائم {name}',
   installApp: 'تثبيت التطبيق', installIos: 'للتثبيت: اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».', installOther: 'للتثبيت: افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».',
   signOut: 'تسجيل الخروج', hi: 'مرحبًا، {name}',
   createdOn: 'أُنشئت في {date} الساعة {time}',
@@ -200,13 +200,13 @@ const AR = {
   confirmDeleteList: 'حذف «{name}» مع كل أغراضها وسجلها؟ لا يمكن التراجع عن ذلك.',
   listCreated: '«{name}» جاهزة — أضف أول غرض.', listDeleted: 'تم حذف القائمة.', listGone: 'تم حذف هذه القائمة.',
   listCreateFail: 'تعذر إنشاء القائمة. يرجى المحاولة مرة أخرى.', editListAria: 'تعديل {name}',
-  shoppingListName: '{list} · {name}',
-  familyBtn: 'المشاركة', peopleNav: 'قوائم مَن', listsNav: 'القوائم', editMainHint: 'يمكن إعادة تسمية القائمة الرئيسية لكن لا يمكن حذفها.',
+  listNameOf: '{list} · {name}',
+  sharingBtn: 'المشاركة', peopleNav: 'قوائم مَن', listsNav: 'القوائم', editMainHint: 'يمكن إعادة تسمية القائمة الرئيسية لكن لا يمكن حذفها.',
   cantReach: 'لا يمكن الوصول إلى القائمة بعد — نعرض ما هو محفوظ على هذا الهاتف، وستتحدث عند عودة الاتصال.',
   noAccess: 'لم تعد لديك صلاحية الوصول إلى هذه القائمة.',
   liveStopped: 'توقفت التحديثات المباشرة. أعد فتح التطبيق لإعادة الاتصال.',
 
-  famTitle: 'المشاركة', famSub: 'اختر من يمكنه فتح كل قائمة من قوائمك.',
+  shareTitle: 'المشاركة', shareSub: 'اختر من يمكنه فتح كل قائمة من قوائمك.',
   searchItems: 'البحث في العناصر', searchItemsPh: 'ابحث في هذه القائمة وسجلها…', searchLists: 'البحث في القوائم', alsoIn: 'موجود أيضًا في:', noListMatches: 'لا توجد قوائم مطابقة', noMatches: 'لا توجد عناصر مطابقة لبحثك.', searchCount: 'وُجد {n} لـ«{q}»', searchCountHist: '{n} يوم فيه «{q}»',
   inviteTitle: 'دعوة شخص',
   inviteLeadList: 'أدخل بريده الإلكتروني حتى لو لم يكن لديه حساب بعد. سيحصل على «{list}» الآن، واختر قوائم أخرى في الأسفل.', inviteLeadNone: 'أدخل بريده الإلكتروني حتى لو لم يكن لديه حساب بعد، ثم اختر أي قوائمك يمكنه فتحها.',
@@ -226,7 +226,7 @@ const AR = {
   confirmRemove: 'إزالة صلاحية {name} على قائمتك؟ لن يتمكن من رؤيتها أو تعديلها بعد الآن.',
   remove: 'إزالة', openTheirList: 'فتح قوائمه', shareMyList: 'إضافة إلى أشخاصي',
   makeViewOnly: 'تحويل إلى عرض فقط', allowEditing: 'السماح بالتعديل',
-  famNote: 'لا يرى أي شخص إلا القوائم التي تختارها له. ويمكن جعل كل قائمة للعرض فقط أو قابلة للتعديل.',
+  shareNote: 'لا يرى أي شخص إلا القوائم التي تختارها له. ويمكن جعل كل قائمة للعرض فقط أو قابلة للتعديل.',
   fOwn: 'هذا بريدك أنت. أدخل بريد الشخص الآخر.',
   fAlready: '{name} لديه صلاحية على قائمتك بالفعل.',
   fInvited: 'لا يوجد حساب بالبريد {email} بعد، لذلك حفظنا دعوة. عندما يسجّل بهذا البريد سيرى «{list}».',
@@ -241,14 +241,28 @@ const AR = {
   fRoleView: 'أصبح بإمكان {name} رؤية قائمتك فقط.', fRoleEdit: 'أصبح بإمكان {name} تعديل قائمتك.',
   fRoleFail: 'تعذّر تغيير الصلاحية. حاول مرة أخرى.',
   fRemoved: 'لم يعد بإمكان {name} الوصول إلى قائمتك.', fRemoveFail: 'تعذّرت الإزالة. حاول مرة أخرى.',
-  they: 'الشخص', familyMember: 'شخص',
+  they: 'الشخص', someone: 'شخص',
   setupNotFinished: 'الإعداد غير مكتمل: أضف إعدادات Firebase في أعلى ملف app.js.', notSyncing: 'غير متزامن',
 };
 
 const DICT = { en: EN, ar: AR };
 
+// settings used to be saved under 'shop…' names: move them once to the new names
+(function moveOldSettings(){
+  try {
+    const names = { shopLang:'listsLang', shopMode:'listsMode', shopOwner:'listsOwner', shopRegistered:'listsRegistered' };
+    for (let i = localStorage.length - 1; i >= 0; i--){
+      const k = localStorage.key(i);
+      const nk = names[k] || (k && k.startsWith('shopList:') ? 'lastList:' + k.slice(9) : null);
+      if (!nk) continue;
+      if (localStorage.getItem(nk) == null) localStorage.setItem(nk, k === 'shopMode' && localStorage.getItem(k) === 'shop' ? 'tick' : localStorage.getItem(k));
+      localStorage.removeItem(k);
+    }
+  } catch(e){}
+})();
+
 function detect(){
-  try { const s = localStorage.getItem('shopLang'); if (LANGS.includes(s)) return s; } catch(e){}
+  try { const s = localStorage.getItem('listsLang'); if (LANGS.includes(s)) return s; } catch(e){}
   const n = (navigator.language || 'en').toLowerCase();
   return n.startsWith('ar') ? 'ar' : 'en';
 }
@@ -276,7 +290,7 @@ export function itemsAdded(n){
 }
 
 export function setLang(l){
-  try { localStorage.setItem('shopLang', l); } catch(e){}
+  try { localStorage.setItem('listsLang', l); } catch(e){}
   location.reload();
 }
 
